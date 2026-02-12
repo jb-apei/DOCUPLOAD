@@ -56,16 +56,29 @@ def validate_pdf_signature(stream):
     return header.startswith(b'%PDF-')
 
 def validate_docx_signature(stream):
-    """Check if stream starts with PK (Zip container)"""
+    """Check if stream starts with PK (Zip container) and contains word/document.xml"""
     start_pos = stream.tell()
     stream.seek(0)
     header = stream.read(2)
-    stream.seek(start_pos)
+    
     # DOCX is a zip file, so it must start with PK
     if not header.startswith(b'PK'):
+        stream.seek(start_pos)
         return False
-    # Extra check can be added here to look for word/document.xml inside the zip
-    # but that requires reading the whole stream which we might do later.
+    
+    # Verify it's actually a DOCX by checking for word/document.xml
+    try:
+        stream.seek(0)
+        with zipfile.ZipFile(stream, 'r') as docx_zip:
+            # Check if word/document.xml exists in the zip
+            if 'word/document.xml' not in docx_zip.namelist():
+                stream.seek(start_pos)
+                return False
+    except (zipfile.BadZipFile, KeyError):
+        stream.seek(start_pos)
+        return False
+    
+    stream.seek(start_pos)
     return True
 
 def compute_sha256(stream):
@@ -80,6 +93,28 @@ def compute_sha256(stream):
     stream.seek(start_pos)
     return sha.hexdigest()
 
+def normalize_tag_for_index(value):
+    """Normalize tag value for Azure Blob Index Tags (lowercase, spaces to underscores)"""
+    return str(value).lower().replace(' ', '_')[:256]  # Azure tag value limit
+
+def handle_reserved_tags(user_tags):
+    """Handle reserved tag keys by prefixing with 'user.' if collision occurs"""
+    reserved_keys = {
+        'documentType', 'sourceForm', 'submittedAt', 'submittedBy',
+        'submissionId', 'scanStatus', 'scanProvider', 'scanRequestedAt',
+        'scanCompletedAt'
+    }
+    
+    effective_tags = {}
+    for key, value in user_tags.items():
+        if key in reserved_keys:
+            # Prefix with 'user.' to avoid collision
+            effective_tags[f'user.{key}'] = value
+        else:
+            effective_tags[key] = value
+    
+    return effective_tags
+
 @app.route('/')
 def index():
     return send_from_directory('.', 'index.html')
@@ -93,40 +128,72 @@ def upload_project_artifacts():
     try:
         # 1. Input Validation
         if 'architectureDiagram' not in request.files or 'charter' not in request.files:
-            return jsonify({'error': 'Missing required files: architectureDiagram (PDF) and charter (DOCX)'}), 400
+            return jsonify({
+                'error': 'ValidationFailed',
+                'details': [{'field': 'files', 'message': 'Missing required files: architectureDiagram (PDF) and charter (DOCX)'}]
+            }), 400
 
         pdf_file = request.files['architectureDiagram']
         docx_file = request.files['charter']
 
         tags_raw = request.form.get('tags')
         if not tags_raw:
-             return jsonify({'error': 'Missing required tags'}), 400
+            return jsonify({
+                'error': 'ValidationFailed',
+                'details': [{'field': 'tags', 'message': 'Missing required tags'}]
+            }), 400
 
         try:
             tags = json.loads(tags_raw)
         except:
-             return jsonify({'error': 'Invalid tags JSON'}), 400
+            return jsonify({
+                'error': 'ValidationFailed',
+                'details': [{'field': 'tags', 'message': 'Invalid tags JSON'}]
+            }), 400
 
         # Validate required project tag
         if 'project' not in tags:
-             return jsonify({'error': 'Missing required tag: project'}), 400
+            return jsonify({
+                'error': 'ValidationFailed',
+                'details': [{'field': 'tags', 'message': 'Missing required tag: project'}]
+            }), 400
 
         # Validate tag formats
-        effective_tags = {}
+        validated_tags = {}
         for k, v in tags.items():
             if not validate_tag_key(k) or not validate_tag_value(v):
-                 return jsonify({'error': f'Invalid tag format: {k}={v}'}), 400
-            if k not in ['documentType', 'scanStatus']: # Filter reserved if user tries to set them
-                effective_tags[k] = v
+                return jsonify({
+                    'error': 'ValidationFailed',
+                    'details': [{'field': 'tags', 'message': f'Invalid tag format: {k}={v}'}]
+                }), 400
+            validated_tags[k] = v
+        
+        # Handle reserved tag collisions
+        effective_tags = handle_reserved_tags(validated_tags)
 
         # 2. File Type & Signature Validation
         if not validate_pdf_signature(pdf_file.stream):
-            return jsonify({'error': 'architectureDiagram must be a valid PDF'}), 400
+            return jsonify({
+                'error': 'ValidationFailed',
+                'details': [{'field': 'architectureDiagram', 'message': 'Only PDF is allowed and signature must match.'}]
+            }), 400
         if not validate_docx_signature(docx_file.stream):
-             return jsonify({'error': 'charter must be a valid DOCX'}), 400
+            return jsonify({
+                'error': 'ValidationFailed',
+                'details': [{'field': 'charter', 'message': 'Only DOCX is allowed, signature must match, and must contain word/document.xml.'}]
+            }), 400
 
-        # 3. Processing (Hashing)
+        # 3. Processing (Hashing and sizes)
+        pdf_file.stream.seek(0)
+        pdf_content = pdf_file.stream.read()
+        pdf_size = len(pdf_content)
+        pdf_file.stream.seek(0)
         pdf_hash = compute_sha256(pdf_file.stream)
+        
+        docx_file.stream.seek(0)
+        docx_content = docx_file.stream.read()
+        docx_size = len(docx_content)
+        docx_file.stream.seek(0)
         docx_hash = compute_sha256(docx_file.stream)
 
         submission_id = str(uuid.uuid4())
@@ -146,7 +213,13 @@ def upload_project_artifacts():
                     "originalFileName": secure_filename(pdf_file.filename),
                     "storedPathInZip": "files/architecture-diagram.pdf",
                     "contentTypeVerified": "application/pdf",
-                    "sha256": pdf_hash
+                    "sizeBytes": pdf_size,
+                    "sha256": pdf_hash,
+                    "effectiveTags": {
+                        "documentType": "architecture-diagram",
+                        "sourceForm": "upload-project-artifacts",
+                        **effective_tags
+                    }
                 },
                 {
                     "field": "charter",
@@ -154,7 +227,13 @@ def upload_project_artifacts():
                     "originalFileName": secure_filename(docx_file.filename),
                     "storedPathInZip": "files/charter.docx",
                     "contentTypeVerified": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                    "sha256": docx_hash
+                    "sizeBytes": docx_size,
+                    "sha256": docx_hash,
+                    "effectiveTags": {
+                        "documentType": "charter",
+                        "sourceForm": "upload-project-artifacts",
+                        **effective_tags
+                    }
                 }
             ]
         }
@@ -162,17 +241,31 @@ def upload_project_artifacts():
         zip_buffer = io.BytesIO()
         with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
             # Add files with fixed names
-            pdf_file.stream.seek(0)
-            zip_file.writestr("files/architecture-diagram.pdf", pdf_file.stream.read())
-
-            docx_file.stream.seek(0)
-            zip_file.writestr("files/charter.docx", docx_file.stream.read())
-
+            zip_file.writestr("files/architecture-diagram.pdf", pdf_content)
+            zip_file.writestr("files/charter.docx", docx_content)
             # Add manifest
             zip_file.writestr("manifest.json", json.dumps(manifest, indent=2))
 
         zip_buffer.seek(0)
         zip_hash = compute_sha256(zip_buffer)
+        zip_buffer.seek(0, 2)  # Seek to end
+        zip_size = zip_buffer.tell()
+        zip_buffer.seek(0)
+        
+        # Update manifest with zip metadata
+        manifest["zip"] = {
+            "zipSha256": zip_hash,
+            "zipSizeBytes": zip_size
+        }
+        
+        # Recreate zip with updated manifest
+        zip_buffer = io.BytesIO()
+        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+            zip_file.writestr("files/architecture-diagram.pdf", pdf_content)
+            zip_file.writestr("files/charter.docx", docx_content)
+            zip_file.writestr("manifest.json", json.dumps(manifest, indent=2))
+        
+        zip_buffer.seek(0)
 
         # Update manifest with zip hash (conceptually circular/tricky if inside, usually track outside or update metadata)
         # The spec says "Store in manifest.json ... AND blob metadata".
@@ -213,14 +306,25 @@ def upload_project_artifacts():
 
                 metadata = {
                     "submissionId": submission_id,
+                    "sourceForm": "upload-project-artifacts",
                     "scanStatus": "pending",
                     "zipSha256": zip_hash,
-                    "submittedAt": timestamp
+                    "submittedAt": timestamp,
+                    "docTypes": "architecture-diagram,charter"
                 }
+                
+                # Normalize tags for Azure Blob Index
                 tags_for_index = {
-                    "project": effective_tags.get("project", "unknown"),
-                    "scanStatus": "pending"
+                    "project": normalize_tag_for_index(effective_tags.get("project", "unknown")),
+                    "scanStatus": "pending",
+                    "sourceForm": "upload-project-artifacts"
                 }
+                
+                # Add optional tags if present
+                if "environment" in effective_tags:
+                    tags_for_index["environment"] = normalize_tag_for_index(effective_tags["environment"])
+                if "domain" in effective_tags:
+                    tags_for_index["domain"] = normalize_tag_for_index(effective_tags["domain"])
 
                 zip_buffer.seek(0)
                 blob_client.upload_blob(zip_buffer, metadata=metadata, tags=tags_for_index)
@@ -253,7 +357,10 @@ def upload_project_artifacts():
 
     except Exception as e:
         logger.error(f"Upload error: {e}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({
+            'error': 'UploadFailed',
+            'details': [{'field': 'general', 'message': str(e)}]
+        }), 500
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
