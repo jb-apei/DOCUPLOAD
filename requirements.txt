@@ -1,0 +1,6 @@
+Flask
+flask-cors
+python-dotenv
+werkzeug
+azure-identity
+azure-storage-blob

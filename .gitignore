@@ -1,0 +1,8 @@
+__pycache__/
+*.py[cod]
+*$py.class
+uploads/
+.env
+.venv
+env/
+venv/
