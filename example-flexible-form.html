@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flexible Document Upload - Example Form</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input[type="file"], input[type="text"] {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: #f8f9fa;
+        }
+        .success {
+            border-color: #28a745;
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .error {
+            border-color: #dc3545;
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        .file-info {
+            font-size: 12px;
+            color: #666;
+            margin-top: 3px;
+        }
+        h1 {
+            color: #333;
+        }
+        h2 {
+            color: #555;
+            font-size: 18px;
+            margin-top: 30px;
+        }
+        .info-box {
+            background-color: #e7f3ff;
+            border-left: 4px solid #007bff;
+            padding: 10px 15px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>📄 Flexible Document Upload</h1>
+    
+    <div class="info-box">
+        <strong>Supported file types:</strong> PDF, DOCX, XLSX, XLS, PPTX, PNG, JPG, TXT, CSV<br>
+        <strong>Max file size:</strong> 25MB per file<br>
+        <strong>Max total size:</strong> 50MB per submission
+    </div>
+
+    <form id="uploadForm">
+        <div class="form-group">
+            <label for="formId">Form Identifier (optional)</label>
+            <input type="text" id="formId" name="formId" placeholder="e.g., contract-submission" value="single-doc-form">
+        </div>
+
+        <div class="form-group">
+            <label for="submittedBy">Submitted By (optional)</label>
+            <input type="text" id="submittedBy" name="submittedBy" placeholder="e.g., john.doe@example.com">
+        </div>
+
+        <h2>Upload Documents</h2>
+        <p style="color: #666;">You can upload any number of files. Each file will be validated and scanned for viruses.</p>
+
+        <div class="form-group">
+            <label for="document1">Document 1</label>
+            <input type="file" id="document1" name="document1">
+            <div class="file-info">Any supported file type</div>
+        </div>
+
+        <div class="form-group">
+            <label for="document2">Document 2 (optional)</label>
+            <input type="file" id="document2" name="document2">
+            <div class="file-info">Any supported file type</div>
+        </div>
+
+        <div class="form-group">
+            <label for="document3">Document 3 (optional)</label>
+            <input type="file" id="document3" name="document3">
+            <div class="file-info">Any supported file type</div>
+        </div>
+
+        <h2>Tags (optional)</h2>
+        <p style="color: #666;">Tags help organize and search your submissions. Use lowercase letters, numbers, and hyphens for keys.</p>
+
+        <div class="form-group">
+            <label for="tagKey1">Tag Key 1</label>
+            <input type="text" id="tagKey1" placeholder="e.g., project" value="department">
+        </div>
+        <div class="form-group">
+            <label for="tagValue1">Tag Value 1</label>
+            <input type="text" id="tagValue1" placeholder="e.g., ProjectName" value="HR">
+        </div>
+
+        <div class="form-group">
+            <label for="tagKey2">Tag Key 2 (optional)</label>
+            <input type="text" id="tagKey2" placeholder="e.g., environment">
+        </div>
+        <div class="form-group">
+            <label for="tagValue2">Tag Value 2 (optional)</label>
+            <input type="text" id="tagValue2" placeholder="e.g., production">
+        </div>
+
+        <button type="submit" id="submitBtn">Upload Documents</button>
+    </form>
+
+    <div id="result"></div>
+
+    <script>
+        const form = document.getElementById('uploadForm');
+        const resultDiv = document.getElementById('result');
+        const submitBtn = document.getElementById('submitBtn');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            // Disable submit button
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Uploading...';
+            resultDiv.innerHTML = '<div class="result">Processing your upload...</div>';
+
+            try {
+                // Collect tags
+                const tags = {};
+                const tagKey1 = document.getElementById('tagKey1').value.trim();
+                const tagValue1 = document.getElementById('tagValue1').value.trim();
+                const tagKey2 = document.getElementById('tagKey2').value.trim();
+                const tagValue2 = document.getElementById('tagValue2').value.trim();
+
+                if (tagKey1 && tagValue1) {
+                    tags[tagKey1] = tagValue1;
+                }
+                if (tagKey2 && tagValue2) {
+                    tags[tagKey2] = tagValue2;
+                }
+
+                // Build FormData
+                const formData = new FormData();
+                
+                // Add form identifier and submittedBy
+                const formId = document.getElementById('formId').value || 'generic-form';
+                const submittedBy = document.getElementById('submittedBy').value || 'anonymous';
+                formData.append('formId', formId);
+                formData.append('submittedBy', submittedBy);
+
+                // Add tags as JSON
+                formData.append('tags', JSON.stringify(tags));
+
+                // Add files
+                let fileCount = 0;
+                for (let i = 1; i <= 3; i++) {
+                    const fileInput = document.getElementById(`document${i}`);
+                    if (fileInput.files.length > 0) {
+                        formData.append(`document${i}`, fileInput.files[0]);
+                        fileCount++;
+                    }
+                }
+
+                if (fileCount === 0) {
+                    throw new Error('Please select at least one file to upload');
+                }
+
+                // Submit to the flexible endpoint
+                const response = await fetch('/submit', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    // Success
+                    let html = '<div class="result success">';
+                    html += '<h3>✅ Upload Successful!</h3>';
+                    html += `<p><strong>Submission ID:</strong> ${result.submissionId}</p>`;
+                    html += `<p><strong>File Count:</strong> ${result.fileCount}</p>`;
+                    html += `<p><strong>Scan Status:</strong> ${result.scanStatus}</p>`;
+                    html += `<p><strong>Storage Location:</strong> ${result.storageMode}</p>`;
+                    html += `<p><strong>Zip SHA256:</strong> <code>${result.zipSha256}</code></p>`;
+                    
+                    if (result.files && result.files.length > 0) {
+                        html += '<h4>Uploaded Files:</h4><ul>';
+                        result.files.forEach(file => {
+                            html += `<li><strong>${file.field}:</strong> ${file.originalFileName} (${file.fileType}, ${file.sizeBytes} bytes)</li>`;
+                        });
+                        html += '</ul>';
+                    }
+
+                    if (result.warnings && result.warnings.length > 0) {
+                        html += '<h4>⚠️ Warnings:</h4><ul>';
+                        result.warnings.forEach(warning => {
+                            html += `<li>${warning.field}: ${warning.message}</li>`;
+                        });
+                        html += '</ul>';
+                    }
+
+                    html += '</div>';
+                    resultDiv.innerHTML = html;
+
+                    // Clear the form
+                    form.reset();
+                } else {
+                    // Error
+                    let html = '<div class="result error">';
+                    html += '<h3>❌ Upload Failed</h3>';
+                    html += `<p><strong>Error:</strong> ${result.error || 'Unknown error'}</p>`;
+                    
+                    if (result.details && result.details.length > 0) {
+                        html += '<h4>Details:</h4><ul>';
+                        result.details.forEach(detail => {
+                            html += `<li><strong>${detail.field}:</strong> ${detail.message}</li>`;
+                        });
+                        html += '</ul>';
+                    }
+                    
+                    html += '</div>';
+                    resultDiv.innerHTML = html;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="result error">
+                    <h3>❌ Error</h3>
+                    <p>${error.message}</p>
+                </div>`;
+            } finally {
+                // Re-enable submit button
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Upload Documents';
+            }
+        });
+    </script>
+</body>
+</html>

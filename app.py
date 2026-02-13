@@ -150,6 +150,95 @@ def validate_excel_signature(stream):
 
     return False
 
+def validate_pptx_signature(stream):
+    """Check if stream is a valid PowerPoint file (PPTX)"""
+    start_pos = stream.tell()
+    stream.seek(0)
+    header = stream.read(2)
+
+    # PPTX is a zip file, so it must start with PK
+    if not header.startswith(b'PK'):
+        stream.seek(start_pos)
+        return False
+
+    # Verify it's actually a PPTX by checking for ppt/ folder
+    try:
+        stream.seek(0)
+        with zipfile.ZipFile(stream, 'r') as pptx_zip:
+            # Check if ppt/ folder exists
+            namelist = pptx_zip.namelist()
+            if any(name.startswith('ppt/') for name in namelist):
+                stream.seek(start_pos)
+                return True
+    except (zipfile.BadZipFile, KeyError):
+        stream.seek(start_pos)
+        return False
+
+    stream.seek(start_pos)
+    return False
+
+def validate_text_signature(stream):
+    """Check if stream is a valid text file (TXT, CSV)"""
+    start_pos = stream.tell()
+    stream.seek(0)
+    try:
+        # Read first 1KB and try to decode as UTF-8
+        sample = stream.read(1024)
+        sample.decode('utf-8')
+        stream.seek(start_pos)
+        return True
+    except UnicodeDecodeError:
+        stream.seek(start_pos)
+        return False
+
+def validate_image_signature(stream):
+    """Check if stream is a valid image file (PNG, JPG, JPEG)"""
+    start_pos = stream.tell()
+    stream.seek(0)
+    header = stream.read(10)
+    stream.seek(start_pos)
+
+    # PNG signature
+    if header.startswith(b'\x89PNG\r\n\x1a\n'):
+        return True
+
+    # JPEG signature
+    if header.startswith(b'\xFF\xD8\xFF'):
+        return True
+
+    return False
+
+def detect_file_type(stream, filename):
+    """Detect file type from content signature and return (type, mime_type, extension)"""
+    # Try each validator
+    if validate_pdf_signature(stream):
+        return ('pdf', 'application/pdf', '.pdf')
+    elif validate_docx_signature(stream):
+        return ('docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', '.docx')
+    elif validate_excel_signature(stream):
+        # Check extension to differentiate XLS vs XLSX
+        ext = os.path.splitext(filename)[1].lower()
+        if ext == '.xls':
+            return ('xls', 'application/vnd.ms-excel', '.xls')
+        else:
+            return ('xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', '.xlsx')
+    elif validate_pptx_signature(stream):
+        return ('pptx', 'application/vnd.openxmlformats-officedocument.presentationml.presentation', '.pptx')
+    elif validate_image_signature(stream):
+        ext = os.path.splitext(filename)[1].lower()
+        if ext == '.png':
+            return ('png', 'image/png', '.png')
+        else:
+            return ('jpeg', 'image/jpeg', '.jpg')
+    elif validate_text_signature(stream):
+        ext = os.path.splitext(filename)[1].lower()
+        if ext == '.csv':
+            return ('csv', 'text/csv', '.csv')
+        else:
+            return ('txt', 'text/plain', '.txt')
+    else:
+        return (None, None, None)
+
 def compute_sha256(stream):
     sha = hashlib.sha256()
     start_pos = stream.tell()
@@ -482,6 +571,301 @@ def upload_project_artifacts():
 
     except Exception as e:
         logger.error(f"UPLOAD_ERROR: Failed from {client_ip} - {str(e)}", exc_info=True)
+        return jsonify({
+            'error': 'UploadFailed',
+            'details': [{'field': 'general', 'message': str(e)}]
+        }), 500
+
+
+@app.route('/submit', methods=['POST'])
+@limiter.limit("20 per hour")
+def flexible_submit():
+    """Flexible file upload endpoint that accepts any number of files with any field names"""
+    client_ip = request.remote_addr
+    logger.info(f"FLEXIBLE_SUBMIT_START: New submission from {client_ip}")
+    
+    try:
+        # 1. Check if any files were uploaded
+        if not request.files:
+            logger.warning(f"FLEXIBLE_SUBMIT_VALIDATION_FAILED: No files uploaded from {client_ip}")
+            return jsonify({
+                'error': 'ValidationFailed',
+                'details': [{'field': 'files', 'message': 'At least one file is required'}]
+            }), 400
+
+        # 2. Get tags (optional but recommended)
+        tags_raw = request.form.get('tags', '{}')
+        try:
+            tags = json.loads(tags_raw)
+        except:
+            logger.warning(f"FLEXIBLE_SUBMIT_VALIDATION_FAILED: Invalid JSON in tags from {client_ip}")
+            return jsonify({
+                'error': 'ValidationFailed',
+                'details': [{'field': 'tags', 'message': 'Invalid tags JSON format'}]
+            }), 400
+
+        # Validate tag formats
+        validated_tags = {}
+        for k, v in tags.items():
+            if not validate_tag_key(k) or not validate_tag_value(v):
+                return jsonify({
+                    'error': 'ValidationFailed',
+                    'details': [{'field': 'tags', 'message': f'Invalid tag format: {k}={v}'}]
+                }), 400
+            validated_tags[k] = v
+
+        # Handle reserved tag collisions
+        effective_tags = handle_reserved_tags(validated_tags)
+
+        # 3. Get form identifier (optional)
+        form_id = request.form.get('formId', 'generic-form')
+        
+        # 4. Process all uploaded files
+        files_data = []
+        total_size = 0
+        file_errors = []
+
+        for field_name in request.files:
+            file_obj = request.files[field_name]
+            
+            # Skip empty files
+            if not file_obj or file_obj.filename == '':
+                continue
+
+            # Detect file type
+            file_type, mime_type, extension = detect_file_type(file_obj.stream, file_obj.filename)
+            
+            if not file_type:
+                file_errors.append({
+                    'field': field_name,
+                    'filename': file_obj.filename,
+                    'message': 'Unsupported file type or invalid file signature'
+                })
+                continue
+
+            # Read file content
+            file_obj.stream.seek(0)
+            content = file_obj.stream.read()
+            file_size = len(content)
+
+            # Check individual file size
+            if file_size > MAX_FILE_SIZE:
+                file_errors.append({
+                    'field': field_name,
+                    'filename': file_obj.filename,
+                    'message': f'File size {file_size} bytes exceeds maximum {MAX_FILE_SIZE} bytes'
+                })
+                continue
+
+            total_size += file_size
+
+            # Compute hash
+            file_hash = hashlib.sha256(content).hexdigest()
+
+            # Create sanitized storage name
+            base_name = os.path.splitext(secure_filename(file_obj.filename))[0]
+            stored_name = f"{secure_filename(field_name)}_{base_name}{extension}"
+
+            files_data.append({
+                'field': field_name,
+                'documentType': secure_filename(field_name),
+                'originalFileName': secure_filename(file_obj.filename),
+                'storedPathInZip': f'files/{stored_name}',
+                'contentTypeVerified': mime_type,
+                'fileType': file_type,
+                'sizeBytes': file_size,
+                'sha256': file_hash,
+                'content': content,
+                'effectiveTags': {
+                    'documentType': secure_filename(field_name),
+                    'sourceForm': form_id,
+                    **effective_tags
+                }
+            })
+
+        # Check if we have any valid files
+        if not files_data:
+            logger.warning(f"FLEXIBLE_SUBMIT_VALIDATION_FAILED: No valid files from {client_ip}")
+            return jsonify({
+                'error': 'ValidationFailed',
+                'details': file_errors if file_errors else [{'field': 'files', 'message': 'No valid files uploaded'}]
+            }), 400
+
+        # Check total size
+        if total_size > MAX_TOTAL_SIZE:
+            logger.warning(f"FLEXIBLE_SUBMIT_VALIDATION_FAILED: Total size {total_size} exceeds limit from {client_ip}")
+            return jsonify({
+                'error': 'ValidationFailed',
+                'details': [{'field': 'files', 'message': f'Total file size {total_size} bytes exceeds maximum {MAX_TOTAL_SIZE} bytes'}]
+            }), 400
+
+        # 5. Create manifest
+        submission_id = str(uuid.uuid4())
+        eastern = ZoneInfo("America/New_York")
+        timestamp = datetime.datetime.now(eastern).isoformat()
+
+        logger.info(f"FLEXIBLE_SUBMIT_PROCESSING: {submission_id} from {client_ip} - Form: {form_id}, Files: {len(files_data)}, Size: {total_size}")
+
+        manifest = {
+            "submissionId": submission_id,
+            "submittedAt": timestamp,
+            "sourceForm": form_id,
+            "submittedBy": request.form.get('submittedBy', 'anonymous'),
+            "tags": effective_tags,
+            "scan": {"scanStatus": "pending"},
+            "files": [{k: v for k, v in f.items() if k != 'content'} for f in files_data]
+        }
+
+        # 6. Create zip
+        zip_buffer = io.BytesIO()
+        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+            for file_data in files_data:
+                zip_file.writestr(file_data['storedPathInZip'], file_data['content'])
+            zip_file.writestr("manifest.json", json.dumps(manifest, indent=2))
+
+        zip_buffer.seek(0)
+        zip_hash = compute_sha256(zip_buffer)
+        zip_buffer.seek(0, 2)
+        zip_size = zip_buffer.tell()
+        zip_buffer.seek(0)
+
+        manifest["zip"] = {"zipSha256": zip_hash, "zipSizeBytes": zip_size}
+
+        # Recreate zip with updated manifest
+        zip_buffer = io.BytesIO()
+        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+            for file_data in files_data:
+                zip_file.writestr(file_data['storedPathInZip'], file_data['content'])
+            zip_file.writestr("manifest.json", json.dumps(manifest, indent=2))
+
+        zip_buffer.seek(0)
+
+        # 7. Upload to Azure Blob Storage
+        now_et = datetime.datetime.now(eastern)
+        zip_name = f"submission_{now_et.strftime('%Y-%m-%dT%H-%M-%S')}_{submission_id}.zip"
+        blob_path = f"submissions/{now_et.strftime('%Y/%m/%d')}/{submission_id}.zip"
+
+        upload_success = False
+        storage_location = "local"
+
+        if AZURE_STORAGE_ACCOUNT_URL:
+            try:
+                if AZURE_STORAGE_ACCOUNT_KEY:
+                    blob_service_client = BlobServiceClient(
+                        account_url=AZURE_STORAGE_ACCOUNT_URL,
+                        credential=AZURE_STORAGE_ACCOUNT_KEY
+                    )
+                else:
+                    credential = DefaultAzureCredential()
+                    blob_service_client = BlobServiceClient(
+                        account_url=AZURE_STORAGE_ACCOUNT_URL,
+                        credential=credential
+                    )
+                container_client = blob_service_client.get_container_client(AZURE_CONTAINER_NAME)
+                if not container_client.exists():
+                    container_client.create_container()
+
+                blob_client = container_client.get_blob_client(blob_path)
+
+                metadata = {
+                    "submissionId": submission_id,
+                    "sourceForm": form_id,
+                    "scanStatus": "pending",
+                    "zipSha256": zip_hash,
+                    "submittedAt": timestamp,
+                    "fileCount": str(len(files_data))
+                }
+
+                # Add custom tags from form
+                for key, value in effective_tags.items():
+                    metadata[f"tag_{key}"] = str(value)[:256]  # Limit length
+
+                # Normalize tags for Azure Blob Index
+                tags_for_index = {
+                    "sourceForm": normalize_tag_for_index(form_id),
+                    "scanStatus": "pending",
+                    "fileCount": str(len(files_data))
+                }
+
+                # Add user tags to index (up to 10 total)
+                index_tag_count = len(tags_for_index)
+                for key, value in effective_tags.items():
+                    if index_tag_count >= 10:
+                        break
+                    tags_for_index[key] = normalize_tag_for_index(value)
+                    index_tag_count += 1
+
+                zip_buffer.seek(0)
+                blob_client.upload_blob(zip_buffer, metadata=metadata, tags=tags_for_index)
+                upload_success = True
+                storage_location = "azure"
+                logger.info(f"FLEXIBLE_SUBMIT_SUCCESS: {submission_id} uploaded to Azure at {blob_path} - {zip_size} bytes")
+
+                # Virus scanning with Azure Defender
+                logger.info(f"FLEXIBLE_SUBMIT_SCAN_START: Initiating virus scan for {submission_id}")
+                scan_status, scan_details = wait_for_scan_result(blob_client, timeout=30)
+
+                if scan_status == ScanResult.MALICIOUS:
+                    logger.error(f"FLEXIBLE_SUBMIT_SCAN_MALICIOUS: Malware detected in {submission_id} - {scan_details}")
+                    quarantine_result = quarantine_blob(blob_client, blob_service_client, scan_status, scan_details)
+                    return jsonify({
+                        "error": "MalwareDetected",
+                        "submissionId": submission_id,
+                        "scanStatus": "malicious",
+                        "scanDetails": scan_details,
+                        "quarantined": quarantine_result.get("quarantined", False),
+                        "message": "File failed security scan and has been quarantined"
+                    }), 403
+
+                elif scan_status == ScanResult.CLEAN:
+                    logger.info(f"FLEXIBLE_SUBMIT_SCAN_CLEAN: File {submission_id} passed virus scan")
+                    update_blob_scan_status(blob_client, "clean", scan_details)
+                    manifest["scan"]["scanStatus"] = "clean"
+                    manifest["scan"]["scanDetails"] = scan_details
+
+                else:
+                    logger.warning(f"FLEXIBLE_SUBMIT_SCAN_PENDING: Scan not completed for {submission_id} - {scan_status}")
+                    update_blob_scan_status(blob_client, "pending", scan_details)
+                    manifest["scan"]["scanStatus"] = "pending"
+                    manifest["scan"]["scanNote"] = "Scan in progress or defender not enabled"
+
+            except Exception as e:
+                logger.error(f"FLEXIBLE_SUBMIT_AZURE_FAILED: {submission_id} - {str(e)}")
+
+        if not upload_success:
+            local_path = os.path.join(LOCAL_STORAGE_FALLBACK, zip_name)
+            zip_buffer.seek(0)
+            with open(local_path, 'wb') as f:
+                f.write(zip_buffer.read())
+            logger.info(f"FLEXIBLE_SUBMIT_FALLBACK: {submission_id} saved locally to {local_path} - {zip_size} bytes")
+
+        # 8. Build response
+        response_data = {
+            "submissionId": submission_id,
+            "blobPath": blob_path,
+            "zipSha256": zip_hash,
+            "fileCount": len(files_data),
+            "files": [{
+                "field": f["field"],
+                "originalFileName": f["originalFileName"],
+                "fileType": f["fileType"],
+                "sizeBytes": f["sizeBytes"],
+                "sha256": f["sha256"]
+            } for f in files_data],
+            "scanStatus": manifest["scan"]["scanStatus"],
+            "scanDetails": manifest["scan"].get("scanDetails", {}),
+            "storageMode": storage_location,
+            "status": "uploaded"
+        }
+
+        # Add warnings if any files were rejected
+        if file_errors:
+            response_data["warnings"] = file_errors
+
+        return jsonify(response_data), 201
+
+    except Exception as e:
+        logger.error(f"FLEXIBLE_SUBMIT_ERROR: Failed from {client_ip} - {str(e)}", exc_info=True)
         return jsonify({
             'error': 'UploadFailed',
             'details': [{'field': 'general', 'message': str(e)}]

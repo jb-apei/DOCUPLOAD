@@ -1,6 +1,6 @@
 # DOCUPLOAD
 
-Secure document upload service with Azure Blob Storage integration for PDF (architectural diagrams) and DOCX (charter documents).
+Secure document upload service with Azure Blob Storage integration. Supports multiple file types and flexible form integration.
 
 ## 🌐 Live Deployment
 
@@ -10,7 +10,9 @@ The service is deployed on Azure Container Apps and ready for use.
 
 ## 📋 Features
 
-- ✅ Secure file validation (PDF and DOCX signature verification)
+- ✅ **Flexible file uploads** - Accept any number of files from any form
+- ✅ **Multiple file types** - PDF, DOCX, XLSX, XLS, PPTX, PNG, JPG, TXT, CSV
+- ✅ Secure file validation with content signature verification
 - ✅ **Automated virus scanning** with Microsoft Defender for Storage
 - ✅ **Email notifications** - Automated confirmation emails to submitters
 - ✅ **Rate limiting** (20 uploads/hour, 100 requests/hour per IP)
@@ -64,42 +66,74 @@ The service is deployed on Azure Container Apps and ready for use.
 
 ## 📖 Usage
 
-### Option 1: Web Form
-Navigate to the service URL and use the interactive form to upload files.
+### Available Endpoints
 
-### Option 2: Embed Widget
+The service offers three endpoints for different use cases:
+
+#### 1. **`/submit` - Flexible Upload (NEW!)** ⭐ Recommended
+The most flexible endpoint that accepts **any number of files** with **any field names**. Perfect for embedding in any form.
+
+**Supported file types:** PDF, DOCX, XLSX, XLS, PPTX, PNG, JPG, TXT, CSV
+
+**Example:**
+```bash
+curl -X POST http://localhost:5000/submit \
+  -F "document=@contract.pdf" \
+  -F "formId=my-contract-form" \
+  -F 'tags={"department":"Legal","project":"Alpha"}'
+```
+
+📘 **[Full API Documentation](FLEXIBLE_UPLOAD_API.md)** | 🧪 **[Try Example Form](example-flexible-form.html)**
+
+#### 2. `/upload` - Project Artifacts (Legacy)
+Original endpoint for architecture diagrams and charter documents.
+
+**Required files:** `architectureDiagram` (PDF), `charter` (DOCX)
+
+#### 3. `/rfpi-submit` - RFPI Proposals (Legacy)
+Specialized endpoint for USABC RFPI proposal submissions with specific required files.
+
+### Integration Examples
+
+#### Option 1: Flexible Upload (Any Form)
+```html
+<form id="myForm">
+  <input type="file" name="document1" required>
+  <input type="file" name="document2">
+  <button type="submit">Upload</button>
+</form>
+
+<script>
+document.getElementById('myForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const formData = new FormData(e.target);
+  formData.append('formId', 'my-custom-form');
+  formData.append('tags', JSON.stringify({'project': 'MyProject'}));
+  
+  const response = await fetch('/submit', {
+    method: 'POST',
+    body: formData
+  });
+  
+  const result = await response.json();
+  console.log('Submission ID:', result.submissionId);
+});
+</script>
+```
+
+#### Option 2: Embed Widget
 Add this to any HTML page:
 ```html
 <div id="docupload-widget"></div>
 <script src="https://usabc-upload.livelyforest-d06a98a0.eastus.azurecontainerapps.io/widget.js"></script>
 ```
 
-### Option 3: API Integration
+#### Option 3: Legacy API Integration
 ```bash
 curl -X POST https://usabc-upload.livelyforest-d06a98a0.eastus.azurecontainerapps.io/upload \
   -F "architectureDiagram=@diagram.pdf" \
   -F "charter=@charter.docx" \
   -F 'tags={"project":"myproject","environment":"dev"}'
-```
-
-**Required Fields:**
-- `architectureDiagram` - PDF file (validated by signature)
-- `charter` - DOCX file (validated by signature)
-- `tags` - JSON object with at least `project` field (lowercase, alphanumeric, hyphens only)
-
-**Response:**
-```json
-{
-  "submissionId": "uuid",
-  "blobPath": "uploads/2026/02/12/uuid.zip",
-  "zipSha256": "hash",
-  "fileHashes": {
-    "architectureDiagramSha256": "hash",
-    "charterSha256": "hash"
-  },
-  "scanStatus": "pending",
-  "status": "uploaded"
-}
 ```
 
 ## 🔒 File Storage
