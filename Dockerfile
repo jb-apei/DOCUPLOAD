@@ -15,6 +15,7 @@ COPY scanner.py .
 COPY email_notifier.py .
 COPY static/ ./static/
 COPY rfpi-form.html .
+COPY example-flexible-form.html .
 
 # Create upload directories
 RUN mkdir -p uploads/temp uploads/final
