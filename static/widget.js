@@ -1,6 +1,6 @@
 (function() {
     'use strict';
-    
+
     // Configuration
     const WIDGET_ID = 'docupload-widget';
     let API_BASE_URL = '';
@@ -27,23 +27,23 @@
                 font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
                 color: #2d3748;
             }
-            
-            .du-section { 
-                margin-bottom: 1.75rem; 
+
+            .du-section {
+                margin-bottom: 1.75rem;
             }
-            
-            .du-label { 
-                display: block; 
-                font-weight: 600; 
-                margin-bottom: 0.5rem; 
+
+            .du-label {
+                display: block;
+                font-weight: 600;
+                margin-bottom: 0.5rem;
                 font-size: 0.95rem;
                 color: #2d3748;
             }
-            
+
             .du-required {
                 color: #e53e3e;
             }
-            
+
             .du-input-text {
                 width: 100%;
                 padding: 0.75rem;
@@ -53,12 +53,12 @@
                 transition: border-color 0.2s;
                 font-family: inherit;
             }
-            
+
             .du-input-text:focus {
                 outline: none;
                 border-color: #4299e1;
             }
-            
+
             .du-drop-zone {
                 border: 2px dashed #cbd5e0;
                 border-radius: 0.5rem;
@@ -68,64 +68,64 @@
                 transition: all 0.2s;
                 background-color: #f7fafc;
             }
-            
+
             .du-drop-zone:hover {
                 border-color: #4299e1;
                 background-color: #ebf8ff;
             }
-            
+
             .du-drop-zone.dragover {
                 border-color: #4299e1;
                 background-color: #bee3f8;
                 transform: scale(1.02);
             }
-            
+
             .du-drop-zone.has-file {
                 border-style: solid;
                 border-color: #48bb78;
                 background-color: #f0fff4;
             }
-            
+
             .du-drop-icon {
                 font-size: 2.5rem;
                 margin-bottom: 0.5rem;
             }
-            
+
             .du-drop-text {
                 font-size: 0.95rem;
                 color: #4a5568;
                 margin: 0;
             }
-            
+
             .du-file-info {
                 display: none;
                 align-items: center;
                 justify-content: center;
                 gap: 0.5rem;
             }
-            
+
             .du-file-info.show {
                 display: flex;
             }
-            
-            .du-file-name { 
-                font-weight: 600; 
+
+            .du-file-name {
+                font-weight: 600;
                 font-size: 0.95rem;
                 color: #2d3748;
             }
-            
+
             .du-file-size {
                 font-size: 0.85rem;
                 color: #718096;
             }
-            
-            .du-helper { 
-                color: #718096; 
-                font-size: 0.85rem; 
+
+            .du-helper {
+                color: #718096;
+                font-size: 0.85rem;
                 margin-top: 0.5rem;
                 font-style: italic;
             }
-            
+
             .du-btn {
                 background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
                 color: white;
@@ -139,22 +139,22 @@
                 transition: transform 0.2s, box-shadow 0.2s;
                 box-shadow: 0 4px 6px rgba(0,0,0,0.1);
             }
-            
-            .du-btn:hover:not(:disabled) { 
+
+            .du-btn:hover:not(:disabled) {
                 transform: translateY(-2px);
                 box-shadow: 0 6px 12px rgba(0,0,0,0.15);
             }
-            
+
             .du-btn:active:not(:disabled) {
                 transform: translateY(0);
             }
-            
-            .du-btn:disabled { 
-                background: #a0aec0; 
+
+            .du-btn:disabled {
+                background: #a0aec0;
                 cursor: not-allowed;
                 transform: none;
             }
-            
+
             .du-alert {
                 padding: 1rem;
                 border-radius: 0.5rem;
@@ -163,33 +163,33 @@
                 font-size: 0.9rem;
                 line-height: 1.5;
             }
-            
+
             .du-alert.show {
                 display: block;
             }
-            
-            .du-error { 
+
+            .du-error {
                 background-color: #fed7d7;
                 color: #742a2a;
                 border-left: 4px solid #e53e3e;
             }
-            
-            .du-success { 
+
+            .du-success {
                 background-color: #c6f6d5;
                 color: #22543d;
                 border-left: 4px solid #38a169;
             }
-            
-            .du-hidden { 
-                display: none !important; 
+
+            .du-hidden {
+                display: none !important;
             }
-            
+
             .du-tag-grid {
                 display: grid;
                 grid-template-columns: 1fr 1fr;
                 gap: 1rem;
             }
-            
+
             @media (max-width: 640px) {
                 .du-tag-grid {
                     grid-template-columns: 1fr;
@@ -204,22 +204,22 @@
                 <!-- Tags Section -->
                 <div class="du-section">
                     <h3 style="margin: 0 0 1.5rem 0; font-size: 1.1rem; color: #2d3748;">Project Metadata</h3>
-                    
+
                     <div class="du-tag-grid">
                         <div>
                             <label class="du-label">
                                 Project Name <span class="du-required">*</span>
                             </label>
-                            <input 
-                                type="text" 
-                                id="du-tag-project" 
-                                class="du-input-text" 
+                            <input
+                                type="text"
+                                id="du-tag-project"
+                                class="du-input-text"
                                 placeholder="e.g., sis"
                                 required
                             >
                             <p class="du-helper">Lowercase, numbers, hyphens (1-32 chars)</p>
                         </div>
-                        
+
                         <div>
                             <label class="du-label">Environment</label>
                             <select id="du-tag-env" class="du-input-text">
@@ -231,13 +231,13 @@
                             </select>
                         </div>
                     </div>
-                    
+
                     <div style="margin-top: 1rem;">
                         <label class="du-label">Domain (Optional)</label>
-                        <input 
-                            type="text" 
-                            id="du-tag-domain" 
-                            class="du-input-text" 
+                        <input
+                            type="text"
+                            id="du-tag-domain"
+                            class="du-input-text"
                             placeholder="e.g., student"
                         >
                         <p class="du-helper">Alphanumeric, spaces, hyphens, underscores (1-64 chars)</p>
@@ -386,7 +386,7 @@
                 e.preventDefault();
                 e.stopPropagation();
                 zone.classList.remove('dragover');
-                
+
                 if (e.dataTransfer.files.length > 0) {
                     handleFile(e.dataTransfer.files[0]);
                 }
@@ -421,7 +421,7 @@
 
                 // Store file
                 fileData.file = file;
-                
+
                 // Update UI
                 zone.classList.add('has-file');
                 content.style.display = 'none';

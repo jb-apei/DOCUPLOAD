@@ -11,8 +11,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application files
 COPY app.py .
+COPY scanner.py .
+COPY email_notifier.py .
 COPY static/ ./static/
-COPY index.html .
 COPY rfpi-form.html .
 
 # Create upload directories
@@ -30,5 +31,7 @@ ENV TZ=America/New_York
 RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
 USER appuser
 
-# Start the application
-CMD ["python", "app.py"]
+# Start the application with Gunicorn
+# 4 workers, 2 threads per worker = 8 concurrent requests
+# Timeout 120s for file uploads and virus scanning
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "4", "--threads", "2", "--timeout", "120", "--access-logfile", "-", "--error-logfile", "-", "app:app"]

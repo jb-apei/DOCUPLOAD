@@ -1,7 +1,11 @@
 Flask
 flask-cors
+Flask-Limiter
 python-dotenv
 werkzeug
 azure-identity
 azure-storage-blob
+azure-communication-email
 tzdata
+clamd
+gunicorn

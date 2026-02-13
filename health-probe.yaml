@@ -1,0 +1,19 @@
+properties:
+  template:
+    containers:
+    - name: usabc-upload
+      probes:
+      - type: Liveness
+        httpGet:
+          path: /health
+          port: 5000
+        initialDelaySeconds: 10
+        periodSeconds: 30
+        failureThreshold: 3
+      - type: Readiness
+        httpGet:
+          path: /health
+          port: 5000
+        initialDelaySeconds: 5
+        periodSeconds: 10
+        failureThreshold: 3

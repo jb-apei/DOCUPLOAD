@@ -11,12 +11,18 @@ The service is deployed on Azure Container Apps and ready for use.
 ## 📋 Features
 
 - ✅ Secure file validation (PDF and DOCX signature verification)
+- ✅ **Automated virus scanning** with Microsoft Defender for Storage
+- ✅ **Email notifications** - Automated confirmation emails to submitters
+- ✅ **Rate limiting** (20 uploads/hour, 100 requests/hour per IP)
+- ✅ **Automatic quarantine** for malicious files
+- ✅ Comprehensive logging for all upload attempts and scan results
 - ✅ SHA-256 hashing for files and final zip packages
 - ✅ Azure Blob Storage integration with metadata and index tags
 - ✅ Manifest generation with complete submission details
 - ✅ Embeddable widget for integration into other applications
 - ✅ RESTful API for programmatic access
 - ✅ Docker containerized for easy deployment
+- ✅ Eastern Time (EST/EDT) timezone support
 
 ## 🚀 Quick Start (Local Development)
 
@@ -42,6 +48,10 @@ The service is deployed on Azure Container Apps and ready for use.
     AZURE_STORAGE_ACCOUNT_NAME=your-storage-account
     AZURE_STORAGE_ACCOUNT_KEY=your-storage-key
     AZURE_CONTAINER_NAME=your-container
+    
+    # Optional: Email notifications (requires Azure Communication Services)
+    AZURE_COMMUNICATION_CONNECTION_STRING=endpoint=https://...;accesskey=...
+    AZURE_COMMUNICATION_SENDER_ADDRESS=noreply@uploads.uscar.org
     ```
 
 5.  **Run the application:**
@@ -111,13 +121,54 @@ docker run -p 5000:5000 --env-file .env docupload:latest
 ```
 
 ### Deploy to Azure Container Apps:
-See [deploy-guide.md](deploy-guide.md) for detailed deployment instructions.
+
+**Use the deployment script to preserve environment variables:**
+```powershell
+.\deploy.ps1 -Version "v1.5"
+```
+
+See [Deployment Best Practices](DEPLOYMENT_BEST_PRACTICES.md) for critical deployment guidelines.
 
 ## 📚 Documentation
 
-- [Deployment Guide](deploy-guide.md) - Complete deployment instructions
+- **[GETTING_STARTED.md](GETTING_STARTED.md)** - **Quick integration guide for developers**
+- **[SUPPORT.md](SUPPORT.md)** - Troubleshooting guide and common issues
+- **[Deployment Best Practices](DEPLOYMENT_BEST_PRACTICES.md)** - CRITICAL: Read before deploying
 - [Deployment Info](deployment-info.md) - Current deployment details and management commands
+- [Deployment Guide](deploy-guide.md) - Complete deployment instructions
 - [Specification](web-form-upload-spec.md) - Full MVP specification
+- **[Third-Party Integration Guide](THIRD_PARTY_INTEGRATION.md)** - Advanced integration patterns and examples
+- **[Virus Scanning Documentation](VIRUS_SCANNING.md)** - Azure Defender malware scanning setup and monitoring
+- **[Admin Request Document](ADMIN_REQUEST.md)** - Configuration tasks requiring administrator access
+
+## 🔒 Security Features
+
+### Virus Scanning
+- **Microsoft Defender for Storage** integration
+- Automated malware scanning on upload
+- Hash reputation analysis using Microsoft threat intelligence
+- Automatic quarantine of infected files
+- Real-time scan results (typically 10-30 seconds)
+
+### Email Notifications
+- **Automated confirmation emails** sent to submitters via Azure Communication Services
+- Professional HTML emails with submission details and file summary
+- Scan status included in confirmation (clean/pending)
+- Graceful degradation if email service not configured
+
+### Rate Limiting
+- 100 requests per hour per IP (general)
+- 20 uploads per hour per IP (upload endpoints)
+- Rate limit headers in all responses
+
+### Comprehensive Logging
+- All upload attempts logged with client IP
+- Validation failures tracked
+- Scan results logged (clean/malicious/pending)
+- Email delivery status logged
+- Quarantine operations logged
+
+See [VIRUS_SCANNING.md](VIRUS_SCANNING.md) for setup instructions.
 
 ## 🛠️ Technology Stack
 

@@ -8,8 +8,10 @@ import hashlib
 import zipfile
 import re
 import logging
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory, g
 from flask_cors import CORS
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
 
@@ -17,12 +19,34 @@ from dotenv import load_dotenv
 from azure.identity import DefaultAzureCredential
 from azure.storage.blob import BlobServiceClient
 
+# Virus scanning imports
+import scanner
+from scanner import wait_for_scan_result, quarantine_blob, update_blob_scan_status, ScanResult
+
+# Email notification imports
+import email_notifier
+from email_notifier import send_rfpi_confirmation_email
+
 load_dotenv()
-logging.basicConfig(level=logging.INFO)
+
+# Configure structured logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 CORS(app)
+
+# Rate limiting configuration
+limiter = Limiter(
+    app=app,
+    key_func=get_remote_address,
+    default_limits=["100 per hour"],
+    storage_uri="memory://",
+    headers_enabled=True
+)
 
 # Configuration
 UPLOAD_TEMP_FOLDER = 'uploads/temp'
@@ -39,6 +63,32 @@ app.config['MAX_CONTENT_LENGTH'] = MAX_TOTAL_SIZE + (1024 * 1024) # Add buffer f
 for path in [UPLOAD_TEMP_FOLDER, LOCAL_STORAGE_FALLBACK]:
     if not os.path.exists(path):
         os.makedirs(path)
+
+# --- Request Logging Middleware ---
+
+@app.before_request
+def log_request_info():
+    """Log incoming request details"""
+    g.request_start_time = datetime.datetime.now(ZoneInfo("America/New_York"))
+    logger.info(f"REQUEST: {request.method} {request.path} from {request.remote_addr} - User-Agent: {request.user_agent}")
+
+@app.after_request
+def log_response_info(response):
+    """Log response details and duration"""
+    if hasattr(g, 'request_start_time'):
+        duration = (datetime.datetime.now(ZoneInfo("America/New_York")) - g.request_start_time).total_seconds()
+        logger.info(f"RESPONSE: {request.method} {request.path} - Status: {response.status_code} - Duration: {duration:.3f}s")
+    return response
+
+@app.errorhandler(429)
+def ratelimit_handler(e):
+    """Handle rate limit exceeded"""
+    logger.warning(f"RATE_LIMIT_EXCEEDED: {request.remote_addr} attempted {request.method} {request.path}")
+    return jsonify({
+        "error": "RateLimitExceeded",
+        "message": "Too many requests. Please try again later.",
+        "retry_after": e.description
+    }), 429
 
 # --- Validation Helpers ---
 
@@ -136,21 +186,31 @@ def handle_reserved_tags(user_tags):
 
 @app.route('/')
 def index():
-    return send_from_directory('.', 'index.html')
+    return send_from_directory('.', 'rfpi-form.html')
 
 @app.route('/widget.js')
 def serve_widget():
     return send_from_directory('static', 'widget.js')
 
-@app.route('/rfpi-form')
-def rfpi_form():
-    return send_from_directory('.', 'rfpi-form.html')
+@app.route('/health')
+def health_check():
+    """Health check endpoint for load balancer and monitoring"""
+    return jsonify({
+        "status": "healthy",
+        "service": "usabc-upload",
+        "version": "v1.3",
+        "timestamp": datetime.datetime.now(ZoneInfo("America/New_York")).isoformat()
+    }), 200
 
 @app.route('/upload', methods=['POST'])
+@limiter.limit("20 per hour")  # More restrictive for upload endpoint
 def upload_project_artifacts():
+    client_ip = request.remote_addr
+    logger.info(f"UPLOAD_START: New upload request from {client_ip}")
     try:
         # 1. Input Validation
         if 'architectureDiagram' not in request.files or 'charter' not in request.files:
+            logger.warning(f"UPLOAD_VALIDATION_FAILED: Missing required files from {client_ip}")
             return jsonify({
                 'error': 'ValidationFailed',
                 'details': [{'field': 'files', 'message': 'Missing required files: architectureDiagram (PDF) and charter (DOCX)'}]
@@ -161,6 +221,7 @@ def upload_project_artifacts():
 
         tags_raw = request.form.get('tags')
         if not tags_raw:
+            logger.warning(f"UPLOAD_VALIDATION_FAILED: Missing tags from {client_ip}")
             return jsonify({
                 'error': 'ValidationFailed',
                 'details': [{'field': 'tags', 'message': 'Missing required tags'}]
@@ -169,6 +230,7 @@ def upload_project_artifacts():
         try:
             tags = json.loads(tags_raw)
         except:
+            logger.warning(f"UPLOAD_VALIDATION_FAILED: Invalid JSON in tags from {client_ip}")
             return jsonify({
                 'error': 'ValidationFailed',
                 'details': [{'field': 'tags', 'message': 'Invalid tags JSON'}]
@@ -176,6 +238,7 @@ def upload_project_artifacts():
 
         # Validate required project tag
         if 'project' not in tags:
+            logger.warning(f"UPLOAD_VALIDATION_FAILED: Missing 'project' tag from {client_ip}")
             return jsonify({
                 'error': 'ValidationFailed',
                 'details': [{'field': 'tags', 'message': 'Missing required tag: project'}]
@@ -196,11 +259,13 @@ def upload_project_artifacts():
 
         # 2. File Type & Signature Validation
         if not validate_pdf_signature(pdf_file.stream):
+            logger.warning(f"UPLOAD_VALIDATION_FAILED: Invalid PDF signature from {client_ip} - file: {pdf_file.filename}")
             return jsonify({
                 'error': 'ValidationFailed',
                 'details': [{'field': 'architectureDiagram', 'message': 'Only PDF is allowed and signature must match.'}]
             }), 400
         if not validate_docx_signature(docx_file.stream):
+            logger.warning(f"UPLOAD_VALIDATION_FAILED: Invalid DOCX signature from {client_ip} - file: {docx_file.filename}")
             return jsonify({
                 'error': 'ValidationFailed',
                 'details': [{'field': 'charter', 'message': 'Only DOCX is allowed, signature must match, and must contain word/document.xml.'}]
@@ -357,8 +422,40 @@ def upload_project_artifacts():
                 blob_client.upload_blob(zip_buffer, metadata=metadata, tags=tags_for_index)
                 upload_success = True
                 storage_location = "azure"
+                logger.info(f"UPLOAD_SUCCESS: {submission_id} uploaded to Azure at {blob_path} - {zip_size} bytes")
+
+                # Virus scanning with Azure Defender
+                logger.info(f"SCAN_START: Initiating virus scan for {submission_id}")
+                scan_status, scan_details = wait_for_scan_result(blob_client, timeout=30)
+
+                if scan_status == ScanResult.MALICIOUS:
+                    logger.error(f"SCAN_MALICIOUS: Malware detected in {submission_id} - {scan_details}")
+                    # Quarantine the infected file
+                    quarantine_result = quarantine_blob(blob_client, blob_service_client, scan_status, scan_details)
+                    return jsonify({
+                        "error": "MalwareDetected",
+                        "submissionId": submission_id,
+                        "scanStatus": "malicious",
+                        "scanDetails": scan_details,
+                        "quarantined": quarantine_result.get("quarantined", False),
+                        "message": "File failed security scan and has been quarantined"
+                    }), 403
+
+                elif scan_status == ScanResult.CLEAN:
+                    logger.info(f"SCAN_CLEAN: File {submission_id} passed virus scan")
+                    update_blob_scan_status(blob_client, "clean", scan_details)
+                    manifest["scan"]["scanStatus"] = "clean"
+                    manifest["scan"]["scanDetails"] = scan_details
+
+                else:
+                    # Pending, timeout, or error - mark as pending but allow proceed
+                    logger.warning(f"SCAN_PENDING: Scan not completed for {submission_id} - {scan_status}")
+                    update_blob_scan_status(blob_client, "pending", scan_details)
+                    manifest["scan"]["scanStatus"] = "pending"
+                    manifest["scan"]["scanNote"] = "Scan in progress or defender not enabled"
+
             except Exception as e:
-                logger.error(f"Azure Upload Failed: {e}")
+                logger.error(f"UPLOAD_AZURE_FAILED: {submission_id} - {str(e)}")
                 # Fallback to local
 
         if not upload_success:
@@ -367,7 +464,7 @@ def upload_project_artifacts():
              zip_buffer.seek(0)
              with open(local_path, 'wb') as f:
                  f.write(zip_buffer.read())
-             logger.info(f"Saved locally to {local_path}")
+             logger.info(f"UPLOAD_FALLBACK: {submission_id} saved locally to {local_path} - {zip_size} bytes")
 
         return jsonify({
             "submissionId": submission_id,
@@ -377,13 +474,14 @@ def upload_project_artifacts():
                 "architectureDiagramSha256": pdf_hash,
                 "charterSha256": docx_hash
             },
-            "scanStatus": "pending",
+            "scanStatus": manifest["scan"]["scanStatus"],
+            "scanDetails": manifest["scan"].get("scanDetails", {}),
             "storageMode": storage_location,
             "status": "uploaded"
         }), 201
 
     except Exception as e:
-        logger.error(f"Upload error: {e}")
+        logger.error(f"UPLOAD_ERROR: Failed from {client_ip} - {str(e)}", exc_info=True)
         return jsonify({
             'error': 'UploadFailed',
             'details': [{'field': 'general', 'message': str(e)}]
@@ -391,7 +489,10 @@ def upload_project_artifacts():
 
 
 @app.route('/rfpi-submit', methods=['POST'])
+@limiter.limit("20 per hour")  # More restrictive for upload endpoint
 def submit_rfpi_proposal():
+    client_ip = request.remote_addr
+    logger.info(f"RFPI_SUBMIT_START: New RFPI submission from {client_ip}")
     """Handle USABC RFPI Proposal Form submissions"""
     try:
         # 1. Validate form fields
@@ -402,6 +503,7 @@ def submit_rfpi_proposal():
 
         missing_fields = [f for f in required_fields if not request.form.get(f)]
         if missing_fields:
+            logger.warning(f"RFPI_VALIDATION_FAILED: Missing fields {missing_fields} from {client_ip}")
             return jsonify({
                 'error': 'ValidationFailed',
                 'details': [{'field': f, 'message': f'Required field missing'} for f in missing_fields]
@@ -423,6 +525,7 @@ def submit_rfpi_proposal():
                 file_errors.append({'field': field_name, 'message': f'{file_type} file required'})
 
         if file_errors:
+            logger.warning(f"RFPI_VALIDATION_FAILED: File errors from {client_ip} - {file_errors}")
             return jsonify({'error': 'ValidationFailed', 'details': file_errors}), 400
 
         # 3. Get files
@@ -437,24 +540,28 @@ def submit_rfpi_proposal():
 
         # 4. Validate file signatures
         if not validate_pdf_signature(rfpi_proposal.stream):
+            logger.warning(f"RFPI_VALIDATION_FAILED: Invalid RFPI proposal PDF from {client_ip} - {rfpi_proposal.filename}")
             return jsonify({
                 'error': 'ValidationFailed',
                 'details': [{'field': 'rfpiProposal', 'message': 'Must be a valid PDF file'}]
             }), 400
 
         if not validate_pdf_signature(financial_docs.stream):
+            logger.warning(f"RFPI_VALIDATION_FAILED: Invalid financial docs PDF from {client_ip} - {financial_docs.filename}")
             return jsonify({
                 'error': 'ValidationFailed',
                 'details': [{'field': 'financialDocuments', 'message': 'Must be a valid PDF file'}]
             }), 400
 
         if not validate_pdf_signature(additional_docs.stream):
+            logger.warning(f"RFPI_VALIDATION_FAILED: Invalid additional docs PDF from {client_ip} - {additional_docs.filename}")
             return jsonify({
                 'error': 'ValidationFailed',
                 'details': [{'field': 'additionalDocuments', 'message': 'Must be a valid PDF file'}]
             }), 400
 
         if not validate_excel_signature(budget_justification.stream):
+            logger.warning(f"RFPI_VALIDATION_FAILED: Invalid Excel file from {client_ip} - {budget_justification.filename}")
             return jsonify({
                 'error': 'ValidationFailed',
                 'details': [{'field': 'budgetJustification', 'message': 'Must be a valid Excel file (.xls or .xlsx)'}]
@@ -519,6 +626,10 @@ def submit_rfpi_proposal():
         # Use Eastern Time for timestamps (handles EST/EDT automatically)
         eastern = ZoneInfo("America/New_York")
         timestamp = datetime.datetime.now(eastern).isoformat()
+
+        entity_name = request.form.get('entityName', 'unknown')
+        proposal_title = request.form.get('proposalTitle', 'untitled')
+        logger.info(f"RFPI_PROCESSING: {submission_id} from {client_ip} - Entity: {entity_name}, Proposal: {proposal_title}, Files: {len(files_data)}")
 
         manifest = {
             "submissionId": submission_id,
@@ -613,28 +724,81 @@ def submit_rfpi_proposal():
                 blob_client.upload_blob(zip_buffer, metadata=metadata, tags=tags_for_index)
                 upload_success = True
                 storage_location = "azure"
+                logger.info(f"RFPI_SUCCESS: {submission_id} uploaded to Azure at {blob_path} - entity: {entity_name}")
+
+                # Virus scanning with Azure Defender
+                logger.info(f"RFPI_SCAN_START: Initiating virus scan for {submission_id}")
+                scan_status, scan_details = wait_for_scan_result(blob_client, timeout=30)
+
+                if scan_status == ScanResult.MALICIOUS:
+                    logger.error(f"RFPI_SCAN_MALICIOUS: Malware detected in {submission_id} - {scan_details}")
+                    quarantine_result = quarantine_blob(blob_client, blob_service_client, scan_status, scan_details)
+                    return jsonify({
+                        "error": "MalwareDetected",
+                        "submissionId": submission_id,
+                        "scanStatus": "malicious",
+                        "scanDetails": scan_details,
+                        "quarantined": quarantine_result.get("quarantined", False),
+                        "message": "File failed security scan and has been quarantined"
+                    }), 403
+
+                elif scan_status == ScanResult.CLEAN:
+                    logger.info(f"RFPI_SCAN_CLEAN: File {submission_id} passed virus scan")
+                    update_blob_scan_status(blob_client, "clean", scan_details)
+                    manifest["scan"]["scanStatus"] = "clean"
+                    manifest["scan"]["scanDetails"] = scan_details
+
+                else:
+                    logger.warning(f"RFPI_SCAN_PENDING: Scan not completed for {submission_id} - {scan_status}")
+                    update_blob_scan_status(blob_client, "pending", scan_details)
+                    manifest["scan"]["scanStatus"] = "pending"
+                    manifest["scan"]["scanNote"] = "Scan in progress or defender not enabled"
+
             except Exception as e:
-                logger.error(f"Azure Upload Failed: {e}")
+                logger.error(f"RFPI_AZURE_FAILED: {submission_id} - {str(e)}")
 
         if not upload_success:
             local_path = os.path.join(LOCAL_STORAGE_FALLBACK, zip_name)
             zip_buffer.seek(0)
             with open(local_path, 'wb') as f:
                 f.write(zip_buffer.read())
-            logger.info(f"Saved locally to {local_path}")
+            logger.info(f"RFPI_FALLBACK: {submission_id} saved locally to {local_path} - {zip_size} bytes")
 
-        return jsonify({
+        # Send confirmation email
+        email_result = send_rfpi_confirmation_email({
+            "submissionId": submission_id,
+            "email": request.form.get('email'),
+            "entityName": request.form.get('entityName'),
+            "proposalTitle": request.form.get('proposalTitle'),
+            "firstName": request.form.get('firstName'),
+            "lastName": request.form.get('lastName'),
+            "rfpiTitle": request.args.get('rfpi-title', ''),
+            "submittedAt": timestamp,
+            "files": manifest["files"],
+            "scanStatus": manifest["scan"]["scanStatus"],
+            "blobPath": blob_path
+        })
+
+        response_data = {
             "submissionId": submission_id,
             "blobPath": blob_path,
             "zipSha256": zip_hash,
             "fileCount": len(files_data),
-            "scanStatus": "pending",
+            "scanStatus": manifest["scan"]["scanStatus"],
+            "scanDetails": manifest["scan"].get("scanDetails", {}),
             "storageMode": storage_location,
             "status": "uploaded"
-        }), 201
+        }
+
+        # Add email status if sending was attempted
+        if email_result.get("success"):
+            response_data["emailSent"] = True
+            response_data["emailRecipient"] = request.form.get('email')
+
+        return jsonify(response_data), 201
 
     except Exception as e:
-        logger.error(f"RFPI submission error: {e}")
+        logger.error(f"RFPI_ERROR: Failed from {client_ip} - {str(e)}", exc_info=True)
         return jsonify({
             'error': 'UploadFailed',
             'details': [{'field': 'general', 'message': str(e)}]

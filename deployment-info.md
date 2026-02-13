@@ -4,11 +4,70 @@
 
 **Service Name:** USABC-UPLOAD  
 **Public URL:** https://usabc-upload.livelyforest-d06a98a0.eastus.azurecontainerapps.io/  
+**Current Version:** v1.4.1  
 **Status:** Running  
 **Resource Group:** rg-rfpo-e108977f  
 **Environment:** rfpo-env-5kn5bsg47vvac  
 **Container Registry:** acrrfpoe108977f.azurecr.io  
-**Image:** usabc-upload:latest (also tagged as v1.0)
+**Image:** usabc-upload:v1.4.1
+
+---
+
+## 🚀 Deploying New Versions
+
+### **CRITICAL: Always Use the Deployment Script**
+
+```powershell
+# Deploy a new version (builds and deploys)
+.\deploy.ps1 -Version "v1.5"
+
+# Deploy without rebuilding (use existing image)
+.\deploy.ps1 -Version "v1.5" -SkipBuild
+```
+
+**Why use the script?**
+- ✅ **Preserves environment variables** (email config, storage keys, etc.)
+- ✅ Verifies configuration before and after deployment
+- ✅ Shows deployment summary and status
+- ✅ Prevents common deployment mistakes
+
+### **⚠️ NEVER Do This:**
+```powershell
+# ❌ WRONG - This OVERWRITES all environment variables!
+az containerapp update \
+  --name usabc-upload \
+  --resource-group rg-rfpo-e108977f \
+  --image acrrfpoe108977f.azurecr.io/usabc-upload:v1.5 \
+  --set-env-vars "VAR1=value1"  # This removes ALL other env vars!
+```
+
+### **Manual Deployment (If Script Not Available)**
+```powershell
+# Step 1: Build image
+az acr build --registry acrrfpoe108977f --image usabc-upload:v1.5 --file Dockerfile .
+
+# Step 2: Update image ONLY (preserves existing env vars)
+az containerapp update \
+  --name usabc-upload \
+  --resource-group rg-rfpo-e108977f \
+  --image acrrfpoe108977f.azurecr.io/usabc-upload:v1.5
+  # Do NOT use --set-env-vars here!
+
+# Step 3: Verify environment variables are intact
+az containerapp show \
+  --name usabc-upload \
+  --resource-group rg-rfpo-e108977f \
+  --query "properties.template.containers[0].env[].name" -o table
+```
+
+### **Required Environment Variables**
+The following must be configured (preserved across deployments):
+- `AZURE_STORAGE_ACCOUNT_URL`
+- `AZURE_STORAGE_ACCOUNT_NAME`
+- `AZURE_STORAGE_ACCOUNT_KEY`
+- `AZURE_CONTAINER_NAME`
+- `AZURE_COMMUNICATION_CONNECTION_STRING` (for email notifications)
+- `AZURE_COMMUNICATION_SENDER_ADDRESS` (for email notifications)
 
 ---
 
