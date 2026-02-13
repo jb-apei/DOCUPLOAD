@@ -277,6 +277,10 @@ def handle_reserved_tags(user_tags):
 def index():
     return send_from_directory('.', 'rfpi-form.html')
 
+@app.route('/example')
+def serve_example_form():
+    return send_from_directory('.', 'example-flexible-form.html')
+
 @app.route('/widget.js')
 def serve_widget():
     return send_from_directory('static', 'widget.js')
