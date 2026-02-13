@@ -1,45 +1,111 @@
-# Web Form Spec (MVP): Secure 2-Document Upload + Tagging + Dual Hashing + Zip + Azure Blob Storage + Async Malware Scan (Option A)
+# Web Form Spec: Secure Document Upload Service
 
-## Purpose
-Provide a secure web form that accepts **exactly two uploads**:
+**Version:** 1.2  
+**Last Updated:** February 12, 2026  
+**Status:** Production - Deployed to Azure Container Apps
 
-1) **Architectural Diagram** (**PDF only**)  
-2) **Charter** (**DOCX only**)
+## Overview
+This service provides secure web forms for document upload with validation, hashing, and Azure Blob Storage integration.
+
+**Deployed Services:**
+- **Original Form:** 2-document upload (Architectural Diagram PDF + Charter DOCX)
+- **USABC RFPI Form:** Multi-document proposal submission (3 PDFs + Excel files)
 
 Each submission:
 
 - Validates file types by **signature**, not just MIME/extension
-- Validates user tags and applies system tags
+- Validates user tags (original form) or applicant metadata (RFPI form)
 - Computes **SHA-256 hashes for each file AND the final zip**
 - Packages files + `manifest.json` into a zip
-- Uploads to **Azure Blob Storage** using **Managed Identity**
-- Triggers **asynchronous malware scanning (Option A)** and marks the blob `scanStatus=pending` until confirmed clean
+- Uploads to **Azure Blob Storage** with proper metadata and tags
+- Uses **Eastern Time (America/New_York)** for directory structure and timestamps
+- Supports **asynchronous malware scanning** (scanStatus=pending until confirmed clean)
 
-This MVP is intentionally limited to **two file types total** (PDF + DOCX), but is otherwise designed to be **production-grade** in security, validation, auditability, and downstream safety.
+**Production URL:** https://usabc-upload.livelyforest-d06a98a0.eastus.azurecontainerapps.io/
 
 ---
 
-## Scope (MVP)
-### In Scope
-- Web form with exactly 2 upload sections
-- Submission-level metadata tags (applies to both files)
+## Form Types
+
+### Form 1: Original 2-Document Upload
+**Endpoint:** `/upload`  
+**Web UI:** `/` (index.html)
+
+Accepts exactly two uploads:
+1) **Architectural Diagram** (**PDF only**)  
+2) **Charter** (**DOCX only**)
+
+### Form 2: USABC RFPI Proposal Form
+**Endpoint:** `/rfpi-submit`  
+**Web UI:** `/rfpi-form`
+
+Accepts multiple uploads:
+- **Required:**
+  - RFPI Proposal (PDF)
+  - Financial Documents (PDF)
+  - Additional Required Proposal Documents (PDF)
+  - Budget Justification (Excel: .xls or .xlsx)
+- **Optional:**
+  - Budget Justification: Optional 2nd Tier Subrecipient (1) (Excel)
+  - Budget Justification: Optional 2nd Tier Subrecipient (2) (Excel)
+
+---
+
+## Implementation Status
+
+### ✅ Completed Features
+- ✅ Original 2-document upload form (PDF + DOCX)
+- ✅ USABC RFPI proposal form (multi-file support)
+- ✅ File type validation by signature (PDF, DOCX, Excel)
+- ✅ SHA-256 hashing for individual files and zip packages
+- ✅ Manifest.json generation with submission details
+- ✅ Azure Blob Storage integration with metadata and index tags
+- ✅ Eastern Time (EST/EDT) for directory structure and timestamps
+- ✅ Reserved tag collision handling (user.* prefix)
+- ✅ File size tracking in manifest
+- ✅ Normalized blob index tags (lowercase, underscore)
+- ✅ Docker containerization
+- ✅ Deployed to Azure Container Apps (v1.2)
+- ✅ Embeddable widget (static/widget.js)
+
+### ⚠️ Implemented with Temporary Configuration
+- ⚠️ Storage Account Key authentication (should migrate to Managed Identity)
+- ⚠️ No authentication on web forms (anonymous access allowed)
+- ⚠️ CORS allows all origins
+
+### ❌ Not Yet Implemented
+- ❌ Microsoft Entra ID (Azure AD) authentication
+- ❌ Authorization rules and role-based access
+- ❌ Malware scanning integration (scanStatus remains "pending")
+- ❌ Rate limiting
+- ❌ Application Insights monitoring
+- ❌ Custom domain configuration
+- ❌ Quarantine handling for infected files
+- ❌ Scanner worker service
+
+---
+
+## Scope
+
+### In Scope (Implemented)
+- Two web forms with different upload requirements
+- Submission-level metadata (tags for original form, applicant info for RFPI)
 - Strict validation (extension + signature)
-- Dual hashing:
-  - Per-file SHA-256
-  - Zip SHA-256
+- Dual hashing: per-file SHA-256 and zip SHA-256
 - Zip creation with safe internal paths
 - Upload to Azure Blob Storage
-- Apply Blob Metadata + Blob Index Tags
-- Async malware scanning hook (Option A)
-- Scan status enforcement contract for downstream consumers
+- Blob Metadata + Blob Index Tags
+- Timezone-aware timestamps (Eastern Time)
+- Multi-file upload support (RFPI form)
 
-### Out of Scope (for MVP)
-- Multiple files per section
+### Out of Scope (Current Version)
 - Resumable/chunked uploads
 - Direct-to-blob browser upload via SAS
 - Auto-tagging via ML/LLM
 - Automatic document parsing / OCR
-- UI progress bars (nice-to-have)
+- UI progress bars
+- Real-time malware scanning
+- Authentication and authorization
 
 ---
 
@@ -52,35 +118,102 @@ The browser is an untrusted client. The API is the security boundary.
 
 ---
 
-## Authentication & Authorization (Required)
-### Authentication
-- Use **Microsoft Entra ID (Azure AD)** for the web app and API.
-- API must reject anonymous requests.
+## Authentication & Authorization
 
-### Authorization
-- API must enforce authorization rules (examples):
-  - user must be in allowed tenant
-  - user must be in a specific group (optional)
-  - user must have an application role claim (recommended)
+### Current Status (v1.2)
+**⚠️ No Authentication Currently Implemented**
+- Both forms accept anonymous uploads
+- No user identity captured
+- Should be secured before wider deployment
+
+### Recommended (Future Implementation)
+#### Authentication
+- Use **Microsoft Entra ID (Azure AD)** for the web app and API
+- API should reject anonymous requests
+- Capture authenticated user identity in manifest
+
+#### Authorization
+- Enforce authorization rules:
+  - User must be in allowed tenant
+  - User must be in a specific group (optional)
+  - User must have an application role claim (recommended)
+
+---
+
+## Timezone Handling
+
+### Implementation (v1.2)
+- **Timezone:** America/New_York (handles EST/EDT automatically)
+- **Directory Structure:** Uses Eastern Time for blob paths
+  - Example: `/uploads/2026/02/12/{submissionId}.zip`
+  - Example: `/rfpi-submissions/2026/02/13/{submissionId}.zip`
+- **Timestamps:** ISO 8601 format with timezone offset
+  - Example: `2026-02-12T19:36:15.734836-05:00`
+- **Configuration:**
+  - Dockerfile sets `TZ=America/New_York`
+  - Python uses `ZoneInfo("America/New_York")`
+  - Package: `tzdata` (included in requirements.txt)
 
 ---
 
 ## UX Requirements
 
-### Form Layout
+### Form 1: Original Upload (Upload Project Artifacts)
+
+#### Form Layout
 Title: **Upload Project Artifacts**
 
-#### Section A: Architectural Diagram (Required)
+##### Section A: Architectural Diagram (Required)
 - Label: **Architectural Diagram (PDF)**
 - Input name: `architectureDiagram`
 - Accept: `.pdf` only
-- Help text: “Upload a PDF architecture diagram.”
+- Help text: "Upload a PDF architecture diagram."
 
-#### Section B: Charter (Required)
+##### Section B: Charter (Required)
 - Label: **Charter (DOCX)**
 - Input name: `charter`
 - Accept: `.docx` only
-- Help text: “Upload a DOCX charter document.”
+- Help text: "Upload a DOCX charter document."
+
+### Form 2: USABC RFPI Proposal Form
+
+#### Form Layout
+Title: **USABC RFPI Proposal Form**
+
+##### Section A: Applicant Submission (Required Fields)
+- Proposal Title (text, required)
+- Entity Name (text, required)
+- Entity UEI or in-progress (text, required)
+- Email (email, required)
+- Name: First and Last (text, required)
+- Phone (tel, required)
+
+##### Section B: Required Documents
+- **RFPI Proposal** (PDF, required)
+  - Input name: `rfpiProposal`
+  - Help: "1 PDF, maximum of 25 pages - see sections 3.1-3.6 of the RFPI"
+- **Financial Documents** (PDF, required)
+  - Input name: `financialDocuments`
+  - Help: "1 PDF - see section 4.1 of the RFPI"
+- **Additional Required Proposal Documents** (PDF, required)
+  - Input name: `additionalDocuments`
+  - Help: "1 PDF - see sections 4.2-4.9 of the RFPI"
+- **Budget Justification** (Excel, required)
+  - Input name: `budgetJustification`
+  - Accept: `.xls, .xlsx`
+  - Help: "1 Excel file - see section 4.10 of the RFPI"
+
+##### Section C: Optional Documents
+- **Budget Justification: Optional 2nd Tier Subrecipient (1)** (Excel, optional)
+  - Input name: `optionalBudget1`
+  - Accept: `.xls, .xlsx`
+- **Budget Justification: Optional 2nd Tier Subrecipient (2)** (Excel, optional)
+  - Input name: `optionalBudget2`
+  - Accept: `.xls, .xlsx`
+
+##### Section D: Acknowledgments (Required)
+- Checkbox: "I understand that all information submitted in response to this USABC RFPI shall be treated on a non-confidential basis."
+- Checkbox: "The content of this application is complete"
 
 ---
 
@@ -120,13 +253,24 @@ Collision handling rule:
 
 ---
 
-## Strict File Type Rules (MVP)
+## Strict File Type Rules
 
-### Allowed Types (Hard Requirement)
+### Allowed Types
+#### Original Form
 | Field | Allowed Extension | Verified Content Type |
 |------|-------------------|-----------------------|
 | `architectureDiagram` | `.pdf` | `application/pdf` |
 | `charter` | `.docx` | `application/vnd.openxmlformats-officedocument.wordprocessingml.document` |
+
+#### RFPI Form
+| Field | Allowed Extension | Verified Content Type |
+|------|-------------------|-----------------------|
+| `rfpiProposal` | `.pdf` | `application/pdf` |
+| `financialDocuments` | `.pdf` | `application/pdf` |
+| `additionalDocuments` | `.pdf` | `application/pdf` |
+| `budgetJustification` | `.xls, .xlsx` | Excel (XLS or XLSX) |
+| `optionalBudget1` | `.xls, .xlsx` | Excel (XLS or XLSX) |
+| `optionalBudget2` | `.xls, .xlsx` | Excel (XLS or XLSX) |
 
 ### Signature Verification (Required)
 Do **not** trust the browser-provided MIME type.
@@ -141,6 +285,12 @@ The server must verify:
   - Must begin with: `PK`
 - Must contain:
   - `word/document.xml`
+
+#### Excel Signature
+- **XLSX (modern format):**
+  - Must begin with: `PK` (ZIP container)
+- **XLS (legacy format):**
+  - Must begin with: `D0CF11E0A1B11AE1` (OLE2 compound document)
 
 If any mismatch occurs, reject with `400 ValidationFailed`.
 
@@ -216,23 +366,19 @@ The zip must contain:
 - Capture hashes, sizes, verified types, and effective tags
 - Provide a safe, machine-readable contract for downstream services
 
-### Example
+### Example: Original Form Manifest
 ```json
 {
   "submissionId": "uuid",
-  "submittedAt": "2026-02-11T17:32:10Z",
-  "submittedBy": "user@company.com",
+  "submittedAt": "2026-02-12T19:32:10.734836-05:00",
+  "submittedBy": "user@example.com",
   "tags": {
     "project": "SIS",
     "domain": "student",
     "environment": "dev"
   },
   "scan": {
-    "scanStatus": "pending",
-    "scanProvider": null,
-    "scanRequestedAt": "2026-02-11T17:32:12Z",
-    "scanCompletedAt": null,
-    "scanResultDetails": null
+    "scanStatus": "pending"
   },
   "files": [
     {
@@ -275,25 +421,101 @@ The zip must contain:
 }
 ```
 
+### Example: RFPI Form Manifest
+```json
+{
+  "submissionId": "uuid",
+  "submittedAt": "2026-02-12T19:36:15.734836-05:00",
+  "formType": "usabc-rfpi-proposal",
+  "applicantInfo": {
+    "proposalTitle": "Advanced Battery Technology Research",
+    "entityName": "Example University",
+    "entityUEI": "ABC123456789",
+    "email": "researcher@example.edu",
+    "firstName": "Jane",
+    "lastName": "Doe",
+    "phone": "555-1234"
+  },
+  "rfpiInfo": {
+    "title": "",
+    "category": ""
+  },
+  "scan": {
+    "scanStatus": "pending"
+  },
+  "files": [
+    {
+      "field": "rfpiProposal",
+      "documentType": "rfpi-proposal",
+      "originalFileName": "RFPI_Proposal.pdf",
+      "storedPathInZip": "files/rfpi-proposal.pdf",
+      "sizeBytes": 2345678,
+      "sha256": "hex"
+    },
+    {
+      "field": "financialDocuments",
+      "documentType": "financial-documents",
+      "originalFileName": "Financials.pdf",
+      "storedPathInZip": "files/financial-documents.pdf",
+      "sizeBytes": 1234567,
+      "sha256": "hex"
+    },
+    {
+      "field": "additionalDocuments",
+      "documentType": "additional-documents",
+      "originalFileName": "Additional.pdf",
+      "storedPathInZip": "files/additional-documents.pdf",
+      "sizeBytes": 987654,
+      "sha256": "hex"
+    },
+    {
+      "field": "budgetJustification",
+      "documentType": "budget-justification",
+      "originalFileName": "Budget.xlsx",
+      "storedPathInZip": "files/budget-justification.xlsx",
+      "sizeBytes": 456789,
+      "sha256": "hex"
+    }
+  ],
+  "zip": {
+    "zipSha256": "hex",
+    "zipSizeBytes": 5500000
+  }
+}
+```
+
 ---
 
-## Azure Blob Storage Requirements (Secure)
+## Azure Blob Storage Requirements
 
 ### Storage Targets
-- Container: `project-artifacts` (configurable)
-- Blob path convention:
-  - `uploads/{yyyy}/{MM}/{dd}/{submissionId}.zip`
+- **Container:** `usabc-uploads-stage` (configured via environment variable)
+- **Blob path conventions:**
+  - Original form: `uploads/{yyyy}/{MM}/{dd}/{submissionId}.zip`
+  - RFPI form: `rfpi-submissions/{yyyy}/{MM}/{dd}/{submissionId}.zip`
 
-Example:
-- `uploads/2026/02/11/2f3a9c2b-4a9f-4d1a-a9c0-0f0b7a6f1c1b.zip`
+**Timezone:** Dates use Eastern Time (America/New_York)
+
+Examples:
+- `uploads/2026/02/12/2f3a9c2b-4a9f-4d1a-a9c0-0f0b7a6f1c1b.zip`
+- `rfpi-submissions/2026/02/12/8e4b2c1d-9f3a-4e2a-b7c1-3d5e8f9a2b4c.zip`
 
 ---
 
-## Storage Authentication (Required)
+## Storage Authentication
+
+### Current Implementation (v1.2)
+**⚠️ Using Storage Account Keys (Temporary)**
+- Environment variable: `AZURE_STORAGE_ACCOUNT_KEY`
+- Easier for initial deployment but not recommended for production
+- Should migrate to Managed Identity
+
+### Recommended (Future)
 - Upload API uses **Managed Identity**
 - Role assignment:
   - `Storage Blob Data Contributor` scoped to the container
-- Do not use storage account keys in app settings.
+- Remove storage account keys from app settings
+- More secure, no credential rotation needed
 
 ---
 
@@ -333,12 +555,19 @@ Normalization:
 
 ---
 
-## Malware Scanning Hook (Option A: Async After Upload) — Required
+## Malware Scanning Hook (Not Yet Implemented)
 
 ### Design Goal
 Uploads are stored quickly, but **nothing downstream may trust the content** until scan completion.
 
-### Flow
+### Current Status (v1.2)
+**❌ Scanner Not Implemented**
+- All uploads marked `scanStatus=pending`
+- No scanner worker service deployed
+- No scan status updates occur
+- Downstream consumers should check scanStatus but currently no enforcement
+
+### Planned Flow
 1) API uploads zip to Blob Storage.
 2) API sets:
    - blob metadata: `scanStatus=pending`
@@ -371,23 +600,21 @@ If infected:
 
 ---
 
-## API Contract (MVP)
+## API Contract
 
-### Endpoint
-`POST /api/uploads/project-artifacts`
+### Endpoint 1: Original Form Upload
+**Route:** `POST /upload`
 
-Auth:
-- Entra ID Bearer Token (required)
+**Auth:** Currently none (⚠️ should add Entra ID Bearer Token)
 
-Content type:
-- `multipart/form-data`
+**Content type:** `multipart/form-data`
 
-Parts:
+**Parts:**
 - `architectureDiagram` (file, required)
 - `charter` (file, required)
 - `tags` (stringified JSON, required because `project` required)
 
-Example `tags`:
+**Example `tags`:**
 ```json
 {
   "project": "SIS",
@@ -396,13 +623,11 @@ Example `tags`:
 }
 ```
 
----
-
-## Response (201 Created)
+**Response (201 Created):**
 ```json
 {
   "submissionId": "uuid",
-  "blobPath": "uploads/2026/02/11/<submissionId>.zip",
+  "blobPath": "uploads/2026/02/12/<submissionId>.zip",
   "zipSha256": "hex",
   "fileHashes": {
     "architectureDiagramSha256": "hex",
@@ -410,6 +635,41 @@ Example `tags`:
   },
   "scanStatus": "pending",
   "status": "uploaded"
+}
+```
+
+### Endpoint 2: RFPI Form Submission
+**Route:** `POST /rfpi-submit`
+
+**Auth:** Currently none (⚠️ should add Entra ID Bearer Token)
+
+**Content type:** `multipart/form-data`
+
+**Parts:**
+- `proposalTitle` (text, required)
+- `entityName` (text, required)
+- `entityUEI` (text, required)
+- `email` (email, required)
+- `firstName` (text, required)
+- `lastName` (text, required)
+- `phone` (tel, required)
+- `rfpiProposal` (PDF file, required)
+- `financialDocuments` (PDF file, required)
+- `additionalDocuments` (PDF file, required)
+- `budgetJustification` (Excel file, required)
+- `optionalBudget1` (Excel file, optional)
+- `optionalBudget2` (Excel file, optional)
+
+**Response (201 Created):**
+```json
+{
+  "submissionId": "uuid",
+  "blobPath": "rfpi-submissions/2026/02/12/<submissionId>.zip",
+  "zipSha256": "hex",
+  "fileCount": 4,
+  "scanStatus": "pending",
+  "status": "uploaded",
+  "storageMode": "azure"
 }
 ```
 
@@ -437,58 +697,147 @@ Example `tags`:
 
 ---
 
-## Security Requirements (Non-Negotiable)
+## Security Requirements
 
-### Input Validation
-- Validate everything server-side.
-- Reject unexpected fields (allowlist form parts).
+### Current Implementation (v1.2)
+#### ✅ Implemented
+- ✅ Server-side input validation
+- ✅ File signature verification (PDF, DOCX, Excel)
+- ✅ Safe zip entry paths (no user-controlled segments)
+- ✅ SHA-256 hashing for auditability
+- ✅ Structured logging (submissionId, sizes, types, blob paths)
+- ✅ File contents not logged
 
-### Rate Limiting
-- Per-user rate limits (and optionally per IP).
+#### ⚠️ Uses Temporary/Weak Configuration
+- ⚠️ No authentication (anonymous access allowed)
+- ⚠️ No rate limiting
+- ⚠️ CORS allows all origins
+- ⚠️ Storage account key authentication (not Managed Identity)
 
-### Request Limits
-- Max request body at gateway and API.
+#### ❌ Not Yet Implemented
+- ❌ Microsoft Entra ID authentication
+- ❌ Authorization rules
+- ❌ Per-user rate limits
+- ❌ CSRF protection (if using cookie-based auth)
+- ❌ Restricted CORS to trusted origins
+- ❌ Least privilege with Managed Identity
 
-### Logging
-Log (structured):
-- submissionId
-- user
-- sizes
-- verified types
-- blob path
-- scan status transitions
-
-Do not log file contents.
-
-### CORS / CSRF
-- Restrict CORS to trusted origins.
-- If cookie-based auth is used, enforce CSRF protection.
-
-### Least Privilege
-- Managed identity has only the minimum Storage permissions needed.
+### Recommended Security Enhancements
+1. **Add Authentication:** Implement Entra ID Bearer Token validation
+2. **Rate Limiting:** Per-user and per-IP limits
+3. **CORS:** Restrict to specific trusted origins
+4. **Managed Identity:** Remove storage account keys
+5. **Authorization:** Role-based access control
+6. **Request Limits:** Already enforced at gateway and API
 
 ---
 
-## Acceptance Criteria (MVP)
-- Auth required; anonymous upload rejected.
-- Exactly two files required:
-  - `architectureDiagram` must be a valid PDF by signature.
-  - `charter` must be a valid DOCX by structure.
-- `project` tag required; all tags validated by strict patterns.
-- Zip contains both files with fixed internal names + manifest.json.
-- SHA-256 computed for both files and the zip.
-- Zip uploaded to Blob Storage under naming convention.
-- Blob metadata and index tags are set.
-- Scan request event emitted and blob marked `scanStatus=pending`.
-- Scanner updates scan status.
-- Downstream consumers must only process when `scanStatus=clean`.
+## Acceptance Criteria
+
+### ✅ Completed (v1.2)
+- ✅ Two forms deployed and functional:
+  - Original: Exactly two files (PDF + DOCX) with signature validation
+  - RFPI: Multiple files (3 PDFs + Excel) with signature validation
+- ✅ Excel file validation (XLSX and XLS formats)
+- ✅ Tag validation with reserved key collision handling (original form)
+- ✅ Applicant metadata captured (RFPI form)
+- ✅ Zip contains files with fixed internal names + manifest.json
+- ✅ SHA-256 computed for all files and the zip
+- ✅ Zip uploaded to Blob Storage with Eastern Time timestamps
+- ✅ Blob metadata and index tags are set
+- ✅ All blobs marked `scanStatus=pending`
+- ✅ Deployed to Azure Container Apps
+- ✅ Embeddable widget available
+
+### ⚠️ Partial Implementation
+- ⚠️ No authentication (should require Entra ID)
+- ⚠️ Using storage account keys (should use Managed Identity)
+- ⚠️ Scanner not implemented (scanStatus never updates from "pending")
+
+### ❌ Not Yet Met
+- ❌ Authentication required; currently accepts anonymous uploads
+- ❌ Authorization rules not enforced
+- ❌ Scanner worker not deployed
+- ❌ Downstream consumers don't enforce scanStatus checks
+- ❌ Rate limiting not implemented
+- ❌ Application Insights monitoring not configured
+
+---
+
+## Deployment Information
+
+### Production Environment
+- **Platform:** Azure Container Apps
+- **Region:** East US
+- **Resource Group:** rg-rfpo-e108977f
+- **Container Registry:** acrrfpoe108977f.azurecr.io
+- **Storage Account:** strfpo5kn5bsg47vvac
+- **Container:** usabc-uploads-stage
+- **Public URL:** https://usabc-upload.livelyforest-d06a98a0.eastus.azurecontainerapps.io/
+
+### Current Version
+- **Version:** v1.2
+- **Image:** acrrfpoe108977f.azurecr.io/usabc-upload:v1.2
+- **Revision:** usabc-upload--0000003
+- **Status:** Active (100% traffic)
+
+### Environment Variables
+- `AZURE_STORAGE_ACCOUNT_URL`
+- `AZURE_STORAGE_ACCOUNT_NAME`
+- `AZURE_STORAGE_ACCOUNT_KEY` (⚠️ should migrate to Managed Identity)
+- `AZURE_CONTAINER_NAME`
 
 ---
 
 ## Future Enhancements
-- Multiple files per section
-- Per-section tags
-- Resumable uploads
-- Automatic parsing/indexing
-- Auto-tagging suggestions
-- UI progress indicators
+
+### High Priority (Security & Production Readiness)
+1. **Authentication & Authorization**
+   - Implement Microsoft Entra ID authentication
+   - Add role-based access control
+   - Capture authenticated user identity
+2. **Managed Identity Migration**
+   - Remove storage account keys
+   - Configure Container App with Managed Identity
+   - Assign Storage Blob Data Contributor role
+3. **Malware Scanning Integration**
+   - Deploy scanner worker service
+   - Implement scan event queue (Azure Service Bus or Event Grid)
+   - Update scanStatus based on scan results
+   - Add quarantine handling
+4. **Rate Limiting**
+   - Implement per-user and per-IP limits
+   - Configure Azure API Management or Azure Front Door
+5. **Monitoring & Alerting**
+   - Configure Application Insights
+   - Set up alerts for failures and anomalies
+   - Dashboard for submission tracking
+
+### Medium Priority (Features & UX)
+1. **Additional Forms**
+   - Create templates for other document submission types
+   - Dynamic form configuration
+2. **UI Enhancements**
+   - Progress bars during upload
+   - Drag-and-drop for all file inputs
+   - File preview capabilities
+3. **Resumable Uploads**
+   - Support for large files (>25MB)
+   - Chunked upload with resume capability
+4. **Custom Domain**
+   - Configure custom domain with SSL
+   - Branded URLs
+
+### Low Priority (Advanced Features)
+1. **Auto-tagging via ML/LLM**
+   - Document classification
+   - Automatic metadata extraction
+2. **Document Parsing/OCR**
+   - Extract text from PDFs
+   - Parse structured data
+3. **Search & Discovery**
+   - Full-text search across submissions
+   - Advanced filtering by tags/metadata
+4. **Direct-to-Blob Upload**
+   - Generate SAS tokens for browser-direct upload
+   - Reduce server load
