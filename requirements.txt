@@ -4,3 +4,4 @@ python-dotenv
 werkzeug
 azure-identity
 azure-storage-blob
+tzdata
