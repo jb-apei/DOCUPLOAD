@@ -49,8 +49,16 @@ POST /submit
 
 #### Optional Fields
 - `formId` (string) - Identifier for your form (default: `"generic-form"`)
-- `submittedBy` (string) - Email or identifier of submitter (default: `"anonymous"`)
+- `email` (string) - Email address to receive confirmation (triggers email notification)
+- `submittedBy` (string) - Name or identifier of submitter (default: `"anonymous"`)
 - `tags` (JSON string) - Custom metadata tags as key-value pairs
+
+**Email Notifications:**  
+If you provide an `email` field (or `submittedBy` with an email format), the system will automatically send a confirmation email with:
+- Submission ID and timestamp
+- List of all uploaded files
+- Virus scan status
+- Custom tags (if provided)
 
 ### Tags Format
 
@@ -189,9 +197,15 @@ curl -X POST http://localhost:5000/submit \
     "completedAt": "2026-02-13T10:30:45-05:00"
   },
   "storageMode": "azure",
-  "status": "uploaded"
+  "status": "uploaded",
+  "emailSent": true,
+  "emailRecipient": "user@example.com"
 }
 ```
+
+**Response Fields:**
+- `emailSent` - Only present if email was successfully sent
+- `emailRecipient` - Email address where confirmation was sent (only if `emailSent` is true)
 
 ### Error Response (400 Bad Request)
 

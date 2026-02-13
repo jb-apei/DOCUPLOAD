@@ -25,7 +25,7 @@ from scanner import wait_for_scan_result, quarantine_blob, update_blob_scan_stat
 
 # Email notification imports
 import email_notifier
-from email_notifier import send_rfpi_confirmation_email
+from email_notifier import send_rfpi_confirmation_email, send_generic_submission_email
 
 load_dotenv()
 
@@ -839,7 +839,33 @@ def flexible_submit():
                 f.write(zip_buffer.read())
             logger.info(f"FLEXIBLE_SUBMIT_FALLBACK: {submission_id} saved locally to {local_path} - {zip_size} bytes")
 
-        # 8. Build response
+        # 8. Send confirmation email (if email provided)
+        email_sent = False
+        # Check for email in multiple form fields
+        recipient_email = request.form.get('email') or request.form.get('submittedBy')
+        # Validate it looks like an email (contains @)
+        if recipient_email and '@' in recipient_email:
+            email_result = send_generic_submission_email({
+                "submissionId": submission_id,
+                "email": recipient_email,
+                "submittedBy": request.form.get('submittedBy', recipient_email),
+                "sourceForm": form_id,
+                "submittedAt": timestamp,
+                "files": files_data,
+                "scanStatus": manifest["scan"]["scanStatus"],
+                "scanDetails": manifest["scan"].get("scanDetails", {}),
+                "blobPath": blob_path,
+                "tags": effective_tags
+            })
+            if email_result.get("success"):
+                email_sent = True
+                logger.info(f"FLEXIBLE_SUBMIT_EMAIL_SENT: Confirmation email sent to {recipient_email}")
+            else:
+                logger.warning(f"FLEXIBLE_SUBMIT_EMAIL_FAILED: {email_result.get('message')}")
+        else:
+            logger.info(f"FLEXIBLE_SUBMIT_NO_EMAIL: No valid email provided for submission {submission_id}")
+
+        # 9. Build response
         response_data = {
             "submissionId": submission_id,
             "blobPath": blob_path,
@@ -861,6 +887,11 @@ def flexible_submit():
         # Add warnings if any files were rejected
         if file_errors:
             response_data["warnings"] = file_errors
+
+        # Add email status if sending was attempted
+        if email_sent:
+            response_data["emailSent"] = True
+            response_data["emailRecipient"] = recipient_email
 
         return jsonify(response_data), 201
 

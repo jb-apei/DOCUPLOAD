@@ -332,3 +332,204 @@ This is an automated message. Please do not reply directly to this email.
             "success": False,
             "message": f"Failed to send confirmation email: {str(e)}"
         }
+
+
+def send_generic_submission_email(submission_data):
+    """
+    Send confirmation email for generic flexible form submission
+    
+    Args:
+        submission_data: Dictionary containing:
+            - submissionId: Unique submission ID
+            - email: Recipient email address
+            - submittedBy: Submitter identifier (email or name)
+            - sourceForm: Form identifier
+            - submittedAt: Submission timestamp (ISO format)
+            - files: List of file dictionaries with field, fileType, originalFileName, sizeBytes
+            - scanStatus: Virus scan status (clean/pending/malicious)
+            - blobPath: Azure blob storage path
+            - tags: Optional dictionary of custom tags
+    
+    Returns:
+        Dictionary with 'success' (bool) and 'message' (str)
+    """
+    if not EMAIL_ENABLED or not ACS_AVAILABLE:
+        logger.info(f"EMAIL_DISABLED: Would have sent email for submission {submission_data.get('submissionId')}")
+        return {"success": False, "message": "Email service not configured"}
+    
+    try:
+        recipient_email = submission_data.get('email')
+        submission_id = submission_data.get('submissionId')
+        
+        if not recipient_email:
+            logger.info(f"EMAIL_SKIP: No recipient email for submission {submission_id}")
+            return {"success": False, "message": "No recipient email provided"}
+        
+        # Parse timestamp for display
+        submitted_at = submission_data.get('submittedAt', '')
+        try:
+            dt = datetime.fromisoformat(submitted_at)
+            formatted_date = dt.strftime("%B %d, %Y at %I:%M %p %Z")
+        except:
+            formatted_date = submitted_at
+        
+        # Build file summary
+        files = submission_data.get('files', [])
+        file_count = len(files)
+        total_size = sum(f.get('sizeBytes', 0) for f in files)
+        
+        file_list_html = ""
+        file_list_text = ""
+        for file_info in files:
+            field_name = file_info.get('field', 'unknown')
+            filename = file_info.get('originalFileName', 'unknown')
+            file_type = file_info.get('fileType', '').upper()
+            size = format_file_size(file_info.get('sizeBytes', 0))
+            file_list_html += f"          <li><strong>{field_name}</strong>: {filename} ({file_type}, {size})</li>\n"
+            file_list_text += f"  - {field_name}: {filename} ({file_type}, {size})\n"
+        
+        # Scan status message
+        scan_status = submission_data.get('scanStatus', 'pending')
+        scan_message_html = ""
+        scan_message_text = ""
+        if scan_status == "clean":
+            scan_message_html = '<p style="color: #28a745; margin: 10px 0;"><strong>✓ Security Scan: PASSED</strong> - All files have been scanned and are clean.</p>'
+            scan_message_text = "✓ Security Scan: PASSED - All files have been scanned and are clean.\n"
+        elif scan_status == "pending":
+            scan_message_html = '<p style="color: #ffc107; margin: 10px 0;"><strong>⏳ Security Scan: IN PROGRESS</strong> - Files are being scanned for security threats.</p>'
+            scan_message_text = "⏳ Security Scan: IN PROGRESS - Files are being scanned for security threats.\n"
+        
+        # Get form details
+        source_form = submission_data.get('sourceForm', 'Document Upload')
+        submitted_by = submission_data.get('submittedBy', 'User')
+        
+        # Build tags display if provided
+        tags = submission_data.get('tags', {})
+        tags_html = ""
+        tags_text = ""
+        if tags:
+            tags_html = '<div style="margin: 20px 0;"><h3 style="color: #005599;">Submission Tags</h3><ul style="list-style-type: none; padding-left: 0;">'
+            tags_text = "\nSUBMISSION TAGS\n---------------\n"
+            for key, value in tags.items():
+                tags_html += f'  <li><strong>{key}:</strong> {value}</li>\n'
+                tags_text += f"  {key}: {value}\n"
+            tags_html += '</ul></div>'
+        
+        subject = f"Document Submission Received - {source_form} - {submission_id[:8]}"
+        
+        html_body = f"""
+        <html>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+          <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px;">
+            <h2 style="color: #003366; border-bottom: 2px solid #005599; padding-bottom: 10px;">
+              Document Submission Confirmed
+            </h2>
+            
+            <p>Dear {submitted_by},</p>
+            
+            <p>Thank you for your document submission. We have successfully received your files.</p>
+            
+            <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;">
+              <h3 style="color: #005599; margin-top: 0;">Submission Details</h3>
+              <p style="margin: 5px 0;"><strong>Submission ID:</strong> {submission_id}</p>
+              <p style="margin: 5px 0;"><strong>Form:</strong> {source_form}</p>
+              <p style="margin: 5px 0;"><strong>Submitted By:</strong> {submitted_by}</p>
+              <p style="margin: 5px 0;"><strong>Submitted:</strong> {formatted_date}</p>
+            </div>
+            
+            {scan_message_html}
+            
+            <div style="margin: 20px 0;">
+              <h3 style="color: #005599;">Files Received ({file_count} files, {format_file_size(total_size)} total)</h3>
+              <ul style="list-style-type: none; padding-left: 0;">
+{file_list_html}
+              </ul>
+            </div>
+            
+            {tags_html}
+            
+            <div style="background-color: #e7f3ff; padding: 15px; border-left: 4px solid #005599; margin: 20px 0;">
+              <p style="margin: 0;"><strong>What happens next?</strong></p>
+              <p style="margin: 10px 0 0 0;">Your submission will be processed by our team. If we need any additional information, we will contact you at <strong>{recipient_email}</strong>.</p>
+            </div>
+            
+            <p style="margin-top: 30px; color: #666; font-size: 0.9em;">
+              Please keep this confirmation email for your records. If you have any questions about your submission,
+              please reference your Submission ID: <strong>{submission_id}</strong>
+            </p>
+            
+            <hr style="border: none; border-top: 1px solid #ddd; margin: 30px 0;">
+            
+            <p style="color: #666; font-size: 0.85em; margin: 0;">
+              United States Advanced Battery Consortium (USABC)<br>
+              This is an automated message. Please do not reply directly to this email.
+            </p>
+          </div>
+        </body>
+        </html>
+        """
+        
+        text_body = f"""
+Document Submission Confirmed
+
+Dear {submitted_by},
+
+Thank you for your document submission. We have successfully received your files.
+
+SUBMISSION DETAILS
+------------------
+Submission ID: {submission_id}
+Form: {source_form}
+Submitted By: {submitted_by}
+Submitted: {formatted_date}
+
+{scan_message_text}
+FILES RECEIVED ({file_count} files, {format_file_size(total_size)} total)
+--------------
+{file_list_text}
+{tags_text}
+WHAT HAPPENS NEXT?
+------------------
+Your submission will be processed by our team. If we need any additional information,
+we will contact you at {recipient_email}.
+
+Please keep this confirmation email for your records. If you have any questions about your submission,
+please reference your Submission ID: {submission_id}
+
+---
+United States Advanced Battery Consortium (USABC)
+This is an automated message. Please do not reply directly to this email.
+        """
+        
+        # Send email via Azure Communication Services
+        email_client = EmailClient.from_connection_string(ACS_CONNECTION_STRING)
+        
+        message = {
+            "senderAddress": ACS_SENDER_ADDRESS,
+            "recipients": {
+                "to": [{"address": recipient_email}],
+            },
+            "content": {
+                "subject": subject,
+                "plainText": text_body,
+                "html": html_body
+            }
+        }
+        
+        logger.info(f"EMAIL_SENDING: To {recipient_email} for submission {submission_id}")
+        poller = email_client.begin_send(message)
+        result = poller.result()
+        
+        logger.info(f"EMAIL_SENT: Successfully sent to {recipient_email} for submission {submission_id} - Message ID: {result.get('messageId') if isinstance(result, dict) else result.message_id}")
+        return {
+            "success": True,
+            "message": f"Confirmation email sent to {recipient_email}",
+            "messageId": result.get('messageId') if isinstance(result, dict) else result.message_id
+        }
+    
+    except Exception as e:
+        logger.error(f"EMAIL_ERROR: Failed to send email for submission {submission_data.get('submissionId')} - {str(e)}", exc_info=True)
+        return {
+            "success": False,
+            "message": f"Failed to send confirmation email: {str(e)}"
+        }

@@ -95,8 +95,15 @@
         </div>
 
         <div class="form-group">
+            <label for="email">Email Address</label>
+            <input type="email" id="email" name="email" placeholder="your.email@example.com" required>
+            <div class="file-info">Required to receive confirmation email</div>
+        </div>
+
+        <div class="form-group">
             <label for="submittedBy">Submitted By (optional)</label>
-            <input type="text" id="submittedBy" name="submittedBy" placeholder="e.g., john.doe@example.com">
+            <input type="text" id="submittedBy" name="submittedBy" placeholder="e.g., John Doe or john.doe@example.com">
+            <div class="file-info">Your name or identifier</div>
         </div>
 
         <h2>Upload Documents</h2>
@@ -177,10 +184,12 @@
                 // Build FormData
                 const formData = new FormData();
                 
-                // Add form identifier and submittedBy
+                // Add form identifier, email, and submittedBy
                 const formId = document.getElementById('formId').value || 'generic-form';
-                const submittedBy = document.getElementById('submittedBy').value || 'anonymous';
+                const email = document.getElementById('email').value;
+                const submittedBy = document.getElementById('submittedBy').value || email;
                 formData.append('formId', formId);
+                formData.append('email', email);
                 formData.append('submittedBy', submittedBy);
 
                 // Add tags as JSON
@@ -217,6 +226,10 @@
                     html += `<p><strong>Scan Status:</strong> ${result.scanStatus}</p>`;
                     html += `<p><strong>Storage Location:</strong> ${result.storageMode}</p>`;
                     html += `<p><strong>Zip SHA256:</strong> <code>${result.zipSha256}</code></p>`;
+                    
+                    if (result.emailSent) {
+                        html += `<p style="color: #28a745;"><strong>✉️ Confirmation Email:</strong> Sent to ${result.emailRecipient}</p>`;
+                    }
                     
                     if (result.files && result.files.length > 0) {
                         html += '<h4>Uploaded Files:</h4><ul>';
