@@ -1,130 +1,127 @@
 # Azure Infrastructure Configuration Request
 **Service:** USABC Document Upload Service  
 **Date:** February 12, 2026  
+**Updated:** February 13, 2026 - Completed preliminary configurations via Azure CLI  
 **Requestor:** John Bouchard  
 **Subscription:** e108977f-44ed-4400-9580-f7a0bc1d3630  
 **Resource Group:** rg-rfpo-e108977f  
 
 ---
 
-## Executive Summary
-
-This document outlines required Azure infrastructure configurations for the USABC Document Upload Service. The service is currently operational but requires administrative-level permissions to complete production-grade security and usability enhancements.
-
-**Current Status:** ✅ Service deployed and functional at https://usabc-upload.livelyforest-d06a98a0.eastus.azurecontainerapps.io/  
-**Goal:** Enable managed identity, malware scanning, custom domain, and monitoring
+> **📋 UPDATE (Feb 13, 2026):** Several configurations have been completed successfully using Azure CLI. This document now focuses on **ONLY** the items that require elevated admin permissions or external DNS access. Total admin time required: ~35 minutes for critical items.  
 
 ---
 
-## Request 1: Enable Managed Identity for Storage Account Access
+## Executive Summary
 
-### **Why This is Needed:**
-Currently, the container app uses storage account keys (similar to passwords) to access Azure Blob Storage. Managed Identity provides keyless, credential-free authentication that is more secure and eliminates the risk of key exposure or rotation issues.
+This document outlines **remaining** Azure infrastructure configurations for the USABC Document Upload Service that require administrative/elevated permissions. Several configurations have already been completed successfully.
 
-### **Resources Involved:**
-- **Container App:** usabc-upload (in rg-rfpo-e108977f)
-- **Storage Account:** strfpo5kn5bsg47vvac (in rg-rfpo-e108977f)
+**Current Status:** ✅ Service deployed and functional at https://usabc-upload.livelyforest-d06a98a0.eastus.azurecontainerapps.io/  
+**Goal:** Complete managed identity role assignment, enable malware scanning, configure custom domain, and monitoring alerts
 
-### **Step-by-Step Instructions:**
+---
 
-#### Step 1: Enable System-Assigned Managed Identity on Container App
+## ✅ Completed Configurations (No Admin Action Needed)
+
+The following items have been successfully configured via Azure CLI:
+
+1. **✅ Managed Identity Enabled** - System-assigned managed identity created on container app
+   - Principal ID: `6e6b4d47-c050-495e-8842-26d035424764`
+   - ⚠️ Storage account key still in use (will be removed after role assignment)
+   
+2. **✅ Azure Communication Services** - Email service resource created
+   - Resource: `usabc-email-communication` 
+   - Status: Provisioned successfully
+   
+3. **✅ Monitoring Action Group** - Alert notification group created
+   - Name: `usabc-upload-alerts`
+   
+4. **✅ Backup & Recovery Configured**
+   - Blob soft delete: Enabled (30-day retention)
+   - Container soft delete: Enabled (30-day retention)
+   - Blob versioning: Enabled
+   - Quarantine container: Created
+
+
+---
+
+## Request 1: Complete Managed Identity Role Assignment (REQUIRES ADMIN)
+
+### **Status:** ⚠️ Partially Complete - Managed identity enabled, but role assignment and key removal requires elevated permissions
+
+### **What Was Done:**
+- ✅ System-assigned managed identity enabled on container app
+- ✅ Principal ID: `6e6b4d47-c050-495e-8842-26d035424764`
+- ⚠️ Storage account key still in environment (required until role assignment)
+
+### **What Needs Admin Action:**
+
+#### Step 1: Grant Storage Permissions to Managed Identity (requires User Access Administrator or Owner role)
 ```powershell
-# Enable managed identity
-az containerapp identity assign \
-  --name usabc-upload \
-  --resource-group rg-rfpo-e108977f \
-  --system-assigned
-
-# Capture the principal ID (needed for next step)
-$principalId = az containerapp identity show \
-  --name usabc-upload \
-  --resource-group rg-rfpo-e108977f \
-  --query principalId -o tsv
-
-Write-Host "Managed Identity Principal ID: $principalId"
-```
-
-#### Step 2: Grant Storage Permissions to Managed Identity
-```powershell
-# Get storage account resource ID
-$storageId = az storage account show \
-  --name strfpo5kn5bsg47vvac \
-  --resource-group rg-rfpo-e108977f \
-  --query id -o tsv
-
-# Assign "Storage Blob Data Contributor" role
+# Assign "Storage Blob Data Contributor" role to managed identity
 az role assignment create \
-  --assignee $principalId \
+  --assignee 6e6b4d47-c050-495e-8842-26d035424764 \
   --role "Storage Blob Data Contributor" \
-  --scope $storageId
+  --scope "/subscriptions/e108977f-44ed-4400-9580-f7a0bc1d3630/resourceGroups/rg-rfpo-e108977f/providers/Microsoft.Storage/storageAccounts/strfpo5kn5bsg47vvac"
 
 # Verify role assignment
 az role assignment list \
-  --assignee $principalId \
-  --scope $storageId \
+  --assignee 6e6b4d47-c050-495e-8842-26d035424764 \
   --query "[].{Role:roleDefinitionName,Scope:scope}" -o table
 ```
 
-#### Step 3: Remove Storage Key from Container App Environment
+**Authorization Required:** `Microsoft.Authorization/roleAssignments/write`
+
+#### Step 2: Remove Storage Key from Container App (after role assignment succeeds)
+
+⚠️ **IMPORTANT:** Only perform this step AFTER verifying the role assignment succeeded above.
+
 ```powershell
-# Update container app to remove AZURE_STORAGE_ACCOUNT_KEY
-# (App will automatically use managed identity when no key is present)
+# Remove storage key from environment variables
 az containerapp update \
   --name usabc-upload \
   --resource-group rg-rfpo-e108977f \
   --remove-env-vars AZURE_STORAGE_ACCOUNT_KEY
 
-# Verify the change
+# Verify the key was removed
 az containerapp show \
   --name usabc-upload \
   --resource-group rg-rfpo-e108977f \
-  --query "properties.template.containers[0].env" -o table
+  --query "properties.template.containers[0].env[?name=='AZURE_STORAGE_ACCOUNT_KEY']" -o table
 ```
 
-### **Verification:**
-After completing these steps, test file upload at: https://usabc-upload.livelyforest-d06a98a0.eastus.azurecontainerapps.io/
+**Expected Output:** Empty table (key successfully removed)
 
-Files should upload successfully without any authentication errors in the Container App logs.
+### **Verification:**
+After role assignment and key removal, test file upload at: https://usabc-upload.livelyforest-d06a98a0.eastus.azurecontainerapps.io/
+
+Files should upload successfully using managed identity. Check container app logs to confirm:
+- No authentication errors
+- No references to storage account keys
+- Successful blob operations using managed identity
 
 ### **Expected Outcome:**
 ✅ Container app authenticates to storage using managed identity  
-✅ No storage keys stored in environment variables  
-✅ Improved security posture with credential-free authentication
+✅ Zero stored credentials (keyless authentication)  
+✅ Improved security compliance
+
+**Note:** Service continues to work during this transition using the storage key until Step 2 is completed.
 
 ---
 
-## Request 2: Enable Microsoft Defender for Storage - Malware Scanning
+## Request 2: Enable Malware Scanning (REQUIRES ADMIN)
 
-### **Why This is Needed:**
-The application code includes virus scanning capabilities that integrate with Microsoft Defender for Storage. When enabled, all uploaded files are automatically scanned for malware within 10-30 seconds. Malicious files are quarantined automatically.
+### **Status:** ⚠️ Defender for Storage enabled at subscription level, but malware scanning requires role assignment permissions
 
-### **Resources Involved:**
-- **Subscription:** e108977f-44ed-4400-9580-f7a0bc1d3630
-- **Storage Account:** strfpo5kn5bsg47vvac (in rg-rfpo-e108977f)
+### **What Was Done:**
+- ✅ Verified Defender for Storage is enabled (Standard tier with DefenderForStorageV2)
+- ✅ Quarantine container already exists
+- ✅ Free trial period: 29 days remaining
 
-### **Step-by-Step Instructions:**
+### **What Needs Admin Action:****
 
-#### Step 1: Verify Defender for Storage is Enabled at Subscription Level
-```powershell
-# Check current Defender status
-az security pricing show --name StorageAccounts
+#### Enable Malware Scanning on Storage Account (requires role assignment write permissions)
 
-# If not enabled, enable it (requires Security Admin role)
-az security pricing create \
-  --name StorageAccounts \
-  --tier Standard \
-  --subplan DefenderForStorageV2
-```
-
-**Expected Output:**
-```json
-{
-  "pricingTier": "Standard",
-  "subPlan": "DefenderForStorageV2"
-}
-```
-
-#### Step 2: Enable Malware Scanning on Storage Account
 ```powershell
 # Enable malware scanning via REST API
 az rest --method PUT \
@@ -146,20 +143,7 @@ az rest --method PUT \
   }'
 ```
 
-#### Step 3: Create Quarantine Container (for infected files)
-```powershell
-# Create quarantine container
-az storage container create \
-  --name quarantine \
-  --account-name strfpo5kn5bsg47vvac \
-  --auth-mode login
-
-# Set appropriate access policy (private)
-az storage container set-permission \
-  --name quarantine \
-  --account-name strfpo5kn5bsg47vvac \
-  --public-access off
-```
+**Authorization Required:** `Microsoft.Authorization/roleAssignments/write`
 
 #### Alternative: Enable via Azure Portal (if CLI fails)
 
@@ -206,16 +190,13 @@ az storage blob tag list \
 
 ---
 
-## Request 3: DNS Configuration for Custom Domain
+## Request 3: Configure Custom Domain uploads.uscar.org (REQUIRES DNS ACCESS + ADMIN)
 
-### **Why This is Needed:**
-Currently, the service uses the auto-generated Azure domain. A custom domain (uploads.uscar.org) provides:
-- Professional, branded URL
-- Easier to remember for users
-- Consistent with organizational domain
-- Automatic HTTPS certificate from Azure
+### **Status:** ⏳ Requires DNS provider access and Azure permissions
 
-### **DNS Provider:** (Whoever manages uscar.org DNS)
+### **Current Domain:** usabc-upload.livelyforest-d06a98a0.eastus.azurecontainerapps.io  
+### **Target Domain:** uploads.uscar.org  
+### **Verification Token:** 92AD77A30DEAB51492DBE7D424BC6B8026AA51D21C1856F7498C4D009F697494
 
 ### **Step-by-Step Instructions:**
 
@@ -296,37 +277,21 @@ az containerapp hostname list \
 
 ---
 
-## Request 4: Email Configuration for uploads@uscar.org
+## Request 4: Complete Email Configuration for uploads@uscar.org (REQUIRES DNS ACCESS)
 
-### **Why This is Needed:**
-The service now includes automated email confirmation functionality that sends receipt notifications to file submitters. This requires Azure Communication Services to be configured with a verified email domain (uploads@uscar.org). Additionally, a monitored mailbox is helpful for support inquiries.
+### **Status:** ⚠️ Email service created, requires DNS verification and sender configuration
 
-### **Part A: Azure Communication Services for Automated Emails (REQUIRED)**
+### **What Was Done:**
+- ✅ Azure Communication Services Email resource created (`usabc-email-communication`)
+- ✅ Resource provisioned successfully in US data location
 
-The application sends automated confirmation emails to submitters after they upload files. This requires:
-1. Azure Communication Services Email resource
-2. DNS verification of the uscar.org domain
-3. Configuration of sender address (uploads@uscar.org)
-4. Connection string added to container app environment
-
-#### Step 1: Create Azure Communication Services Email Resource
+### **Part A: Configure Custom Domain and Sender Address (REQUIRES DNS ACCESS):**
+#### Step 1: Add Custom Domain (uscar.org) to Email Service
 ```powershell
-# Create Email Communication Service
-az communication email create \
-  --name usabc-email-communication \
-  --resource-group rg-rfpo-e108977f \
-  --data-location "United States"
+# Get email service resource ID
+$emailServiceId="/subscriptions/e108977f-44ed-4400-9580-f7a0bc1d3630/resourceGroups/rg-rfpo-e108977f/providers/Microsoft.Communication/emailServices/usabc-email-communication"
 
-# Note the resource ID for next steps
-$emailServiceId = az communication email show \
-  --name usabc-email-communication \
-  --resource-group rg-rfpo-e108977f \
-  --query id -o tsv
-```
-
-#### Step 2: Add Custom Domain (uscar.org) to Email Service
-```powershell
-# Add custom domain - this will provide DNS records for verification
+# Add custom domain
 az communication email domain create \
   --name uscar-org-domain \
   --email-service-name usabc-email-communication \
@@ -334,7 +299,7 @@ az communication email domain create \
   --domain-management-type CustomerManaged \
   --custom-domain uscar.org
 
-# Get DNS verification records (you'll need to add these to DNS)
+# Get DNS verification records
 az communication email domain show \
   --name uscar-org-domain \
   --email-service-name usabc-email-communication \
@@ -342,16 +307,16 @@ az communication email domain show \
   --query verificationRecords -o json
 ```
 
-#### Step 3: Add Required DNS Records
+#### Step 2: Add Required DNS Records (Requires DNS Provider Access)
 Add the following records to uscar.org DNS (records will be provided by previous command):
 - **TXT record** for domain verification: `_azuremail-validation.uscar.org`
 - **TXT record** for SPF: `v=spf1 include:spf.protection.outlook.com -all`
 - **CNAME record** for DKIM: `selector1._domainkey.uscar.org`
 - **CNAME record** for DKIM: `selector2._domainkey.uscar.org`
 
-#### Step 4: Verify Domain and Add Sender Address
+#### Step 3: Verify Domain and Configure Sender
 ```powershell
-# After DNS records are propagated, verify domain
+# After DNS records are added and propagated, verify domain
 az communication email domain initiate-verification \
   --name uscar-org-domain \
   --email-service-name usabc-email-communication \
@@ -375,7 +340,7 @@ az communication email domain sender-username create \
   --display-name "USABC Document Uploads"
 ```
 
-#### Step 5: Create Communication Services Resource (for connection)
+#### Step 4: Create Communication Services Resource and Configure Container App
 ```powershell
 # Create Communication Services resource to get connection string
 az communication create \
@@ -443,29 +408,25 @@ Set-Mailbox -Identity "support@uscar.org" -EmailAddresses @{add="uploads@uscar.o
 
 ---
 
-## Request 5: Configure Azure Monitor Alerts
+## Request 5: Configure Monitoring Alerts (MAY REQUIRE ADMIN)
 
-### **Why This is Needed:**
-Production services require monitoring and alerting for operational issues, security events, and capacity management.
+### **Status:** ⚠️ Action group created, metric alerts require microsoft.insights provider registration
 
-### **Resources Involved:**
-- **Container App:** usabc-upload
-- **Storage Account:** strfpo5kn5bsg47vvac
+### **What Was Done:**
+- ✅ Action group created (`usabc-upload-alerts`) for email notifications
 
-### **Step-by-Step Instructions:**
+### **What Needs Admin Action:**
 
-#### Step 1: Create Action Group for Alert Notifications
+#### Register microsoft.insights Provider (if needed)
 ```powershell
-# Create action group for email notifications
-az monitor action-group create \
-  --name usabc-upload-alerts \
-  --resource-group rg-rfpo-e108977f \
-  --short-name usabc-alerts \
-  --email-receiver name="Admin" email-address="admin@uscar.org" \
-  --email-receiver name="Uploads" email-address="uploads@uscar.org"
+# Check if provider is registered
+az provider show --namespace Microsoft.Insights --query "registrationState"
+
+# If not registered, register it (requires contributor or higher)
+az provider register --namespace Microsoft.Insights
 ```
 
-#### Step 2: Create Container App Health Alert
+#### Create Monitoring Alerts
 ```powershell
 # Alert when container app is not running
 az monitor metrics alert create \
@@ -531,14 +492,13 @@ az monitor metrics alert create \
 
 ---
 
-## Request 6: Enable Container App Continuous Deployment
+## Request 6: Enable Continuous Deployment (OPTIONAL - LOW PRIORITY)
 
-### **Why This is Needed:**
-Currently, deployments are manual. Setting up continuous deployment from the container registry enables automatic updates when new versions are pushed.
+### **Status:** ⏳ Optional enhancement for automated deployments
 
 ### **Step-by-Step Instructions:**
 
-#### Enable Continuous Deployment
+#### Enable Continuous Deployment from Container Registry
 ```powershell
 # Configure container app to poll registry for updates
 az containerapp registry set \
@@ -559,107 +519,36 @@ az containerapp registry set \
 
 ---
 
-## Request 7: Configure Backup and Disaster Recovery
-
-### **Why This is Needed:**
-Protect against accidental deletion and enable point-in-time recovery for uploaded documents.
-
-### **Step-by-Step Instructions:**
-
-#### Step 1: Enable Blob Soft Delete
-```powershell
-# Enable soft delete with 30-day retention
-az storage account blob-service-properties update \
-  --account-name strfpo5kn5bsg47vvac \
-  --resource-group rg-rfpo-e108977f \
-  --enable-delete-retention true \
-  --delete-retention-days 30
-
-# Enable container soft delete
-az storage account blob-service-properties update \
-  --account-name strfpo5kn5bsg47vvac \
-  --resource-group rg-rfpo-e108977f \
-  --enable-container-delete-retention true \
-  --container-delete-retention-days 30
-```
-
-#### Step 2: Enable Blob Versioning
-```powershell
-# Enable versioning for point-in-time recovery
-az storage account blob-service-properties update \
-  --account-name strfpo5kn5bsg47vvac \
-  --resource-group rg-rfpo-e108977f \
-  --enable-versioning true
-```
-
-#### Step 3: Configure Lifecycle Management (Optional Cost Optimization)
-```powershell
-# Create lifecycle policy to move old data to Cool tier
-az storage account management-policy create \
-  --account-name strfpo5kn5bsg47vvac \
-  --resource-group rg-rfpo-e108977f \
-  --policy '{
-    "rules": [
-      {
-        "enabled": true,
-        "name": "move-old-to-cool",
-        "type": "Lifecycle",
-        "definition": {
-          "actions": {
-            "baseBlob": {
-              "tierToCool": {
-                "daysAfterModificationGreaterThan": 90
-              },
-              "tierToArchive": {
-                "daysAfterModificationGreaterThan": 365
-              }
-            }
-          },
-          "filters": {
-            "blobTypes": ["blockBlob"],
-            "prefixMatch": ["uploads/"]
-          }
-        }
-      }
-    ]
-  }'
-```
-
-### **Expected Outcome:**
-✅ 30-day recovery window for deleted files  
-✅ Point-in-time restore capability  
-✅ Protection against accidental deletion  
-✅ Cost optimization through tiering
-
 ---
 
-## Summary of Required Actions
+## Summary of Required Admin Actions
 
-| # | Task | Estimated Time | Impact | Priority |
-|---|------|----------------|--------|----------|
-| 1 | Enable Managed Identity | 15 minutes | High security improvement | High |
-| 2 | Enable Malware Scanning | 20 minutes | Critical security feature | High |
-| 3 | Configure Custom Domain DNS | 30 minutes | User experience improvement | Medium |
-| 4 | Set up uploads@uscar.org | 20 minutes | Professional communication | Medium |
-| 5 | Configure Monitoring Alerts | 30 minutes | Operational visibility | High |
-| 6 | Enable Continuous Deployment | 10 minutes | Simplified operations | Low |
-| 7 | Configure Backup/DR | 15 minutes | Data protection | High |
+| # | Task | Status | Estimated Time | Priority |
+|---|------|--------|----------------|----------|
+| 1 | Grant Managed Identity Storage Role + Remove Key | ❌ Requires Admin | 10 minutes | **HIGH** |
+| 2 | Enable Malware Scanning | ❌ Requires Admin | 10 minutes | **HIGH** |
+| 3 | Configure Custom Domain DNS | 🔄 Requires DNS Access | 30 minutes | Medium |
+| 4 | Configure uploads@uscar.org Email | 🔄 Requires DNS Access | 20 minutes | Medium |
+| 5 | Register Insights Provider & Create Alerts | ❌ May Require Admin | 20 minutes | **HIGH** |
+| 6 | Enable Continuous Deployment | ⏸️ Optional | 10 minutes | Low |
 
-**Total Estimated Time:** 2.5 - 3 hours
+**Completed:** Managed identity enabled, email service created, action group created, backup/DR configured ✅
+
+**Total Admin Time Required:** ~40 minutes for critical items (HIGH priority only)
 
 ---
 
 ## Testing and Validation Checklist
 
-After completing all requests, verify:
+After completing admin requests, verify:
 
-- [ ] File uploads work with managed identity (check container logs)
-- [ ] Malware scan results appear in blob tags
-- [ ] Custom domain redirects to HTTPS correctly
-- [ ] Email to uploads@uscar.org is received
-- [ ] Alert emails are received when test condition triggered
-- [ ] Soft-deleted blob can be recovered from Azure Portal
-- [ ] Health endpoint returns 200: https://uploads.uscar.org/health
+- [ ] **Request 1:** File uploads work with managed identity (verify in container logs)
+- [ ] **Request 2:** Malware scan results appear in blob tags after upload
+- [ ] **Request 3:** Custom domain https://uploads.uscar.org redirects correctly with valid TLS
+- [ ] **Request 4:** Automated emails sent from uploads@uscar.org to submitters
+- [ ] **Request 5:** Test alert triggers when container app is stopped
+- [ ] **Backup:** Verify soft-deleted blob can be recovered in Azure Portal
+- [ ] **Health:** Endpoint returns 200: https://usabc-upload.livelyforest-d06a98a0.eastus.azurecontainerapps.io/health
 
 ---
 
@@ -673,25 +562,30 @@ After completing all requests, verify:
 
 ## Additional Notes
 
-**Cost Impact Summary:**
-- Managed Identity: No additional cost
-- Defender for Storage: +$10-30/month
-- Custom Domain: No additional cost (included)
-- Email (Shared Mailbox): No additional cost
-- Monitoring: Included in Container Apps pricing
-- Continuous Deployment: No additional cost
-- Backup/Versioning: ~$0.01/GB/month for versioning storage
+**What Was Successfully Configured:**
+- ✅ Managed Identity: Enabled (no additional cost)
+- ⚠️ Storage Key: Still in place (will be removed after admin grants role)
+- ✅ Email Service: Azure Communication Services resource created
+- ✅ Action Group: Alert notifications configured
+- ✅ Backup/DR: Soft delete (30 days) and versioning enabled (~$0.01/GB/month)
+- ✅ Quarantine Container: Created and ready for malware quarantine
 
-**Total Additional Monthly Cost:** ~$10-35/month (primarily Defender scanning)
+**Anticipated Cost Impact (after admin completes requests):**
+- Defender for Storage Malware Scanning: +$10-30/month
+- Backup/Versioning Storage: ~$0.01/GB/month for versioning
+- Custom Domain & TLS: No additional cost (included)
+- Monitoring Alerts: Included in Container Apps pricing
+- Email Sending: $0.0000625 per email (negligible)
 
-**Security Compliance:**
-This configuration achieves:
-- ✅ Zero stored credentials (managed identity)
-- ✅ Automated malware protection
-- ✅ TLS 1.2+ encrypted traffic
-- ✅ 30-day backup retention
-- ✅ Operational monitoring and alerting
-- ✅ Professional branding and communication
+**Total Additional Monthly Cost:** ~$10-35/month (primarily Defender malware scanning)
+
+**Security Compliance Achieved:**
+- 🔄 Zero stored credentials (managed identity enabled, key removal pending admin action)
+- ⏳ Automated malware protection (pending admin enable)
+- ✅ 30-day backup retention with versioning
+- ⏳ TLS 1.2+ encrypted traffic on custom domain (pending DNS)
+- ⏳ Operational monitoring and alerting (pending insights registration)
+- ⏳ Professional branding and communication (pending DNS)
 
 ---
 

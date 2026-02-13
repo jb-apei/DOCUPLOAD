@@ -1,0 +1,11 @@
+# Azure SDK packages
+azure-servicebus==7.12.1
+azure-storage-blob==12.19.1
+azure-identity==1.15.0
+azure-eventgrid==4.18.0
+
+# File processing
+python-dotenv==1.0.1
+
+# Logging and utilities
+python-json-logger==2.0.7

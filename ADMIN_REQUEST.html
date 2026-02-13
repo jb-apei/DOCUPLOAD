@@ -1,0 +1,1019 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>ADMIN_REQUEST.md</title>
+<meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+
+<style>
+/* https://github.com/microsoft/vscode/blob/master/extensions/markdown-language-features/media/markdown.css */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+body {
+	font-family: var(--vscode-markdown-font-family, -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif);
+	font-size: var(--vscode-markdown-font-size, 14px);
+	padding: 0 26px;
+	line-height: var(--vscode-markdown-line-height, 22px);
+	word-wrap: break-word;
+}
+
+#code-csp-warning {
+	position: fixed;
+	top: 0;
+	right: 0;
+	color: white;
+	margin: 16px;
+	text-align: center;
+	font-size: 12px;
+	font-family: sans-serif;
+	background-color:#444444;
+	cursor: pointer;
+	padding: 6px;
+	box-shadow: 1px 1px 1px rgba(0,0,0,.25);
+}
+
+#code-csp-warning:hover {
+	text-decoration: none;
+	background-color:#007acc;
+	box-shadow: 2px 2px 2px rgba(0,0,0,.25);
+}
+
+body.scrollBeyondLastLine {
+	margin-bottom: calc(100vh - 22px);
+}
+
+body.showEditorSelection .code-line {
+	position: relative;
+}
+
+body.showEditorSelection .code-active-line:before,
+body.showEditorSelection .code-line:hover:before {
+	content: "";
+	display: block;
+	position: absolute;
+	top: 0;
+	left: -12px;
+	height: 100%;
+}
+
+body.showEditorSelection li.code-active-line:before,
+body.showEditorSelection li.code-line:hover:before {
+	left: -30px;
+}
+
+.vscode-light.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.15);
+}
+
+.vscode-light.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.40);
+}
+
+.vscode-light.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-dark.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.4);
+}
+
+.vscode-dark.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.60);
+}
+
+.vscode-dark.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-high-contrast.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 160, 0, 0.7);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 160, 0, 1);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+img {
+	max-width: 100%;
+	max-height: 100%;
+}
+
+a {
+	text-decoration: none;
+}
+
+a:hover {
+	text-decoration: underline;
+}
+
+a:focus,
+input:focus,
+select:focus,
+textarea:focus {
+	outline: 1px solid -webkit-focus-ring-color;
+	outline-offset: -1px;
+}
+
+hr {
+	border: 0;
+	height: 2px;
+	border-bottom: 2px solid;
+}
+
+h1 {
+	padding-bottom: 0.3em;
+	line-height: 1.2;
+	border-bottom-width: 1px;
+	border-bottom-style: solid;
+}
+
+h1, h2, h3 {
+	font-weight: normal;
+}
+
+table {
+	border-collapse: collapse;
+}
+
+table > thead > tr > th {
+	text-align: left;
+	border-bottom: 1px solid;
+}
+
+table > thead > tr > th,
+table > thead > tr > td,
+table > tbody > tr > th,
+table > tbody > tr > td {
+	padding: 5px 10px;
+}
+
+table > tbody > tr + tr > td {
+	border-top: 1px solid;
+}
+
+blockquote {
+	margin: 0 7px 0 5px;
+	padding: 0 16px 0 10px;
+	border-left-width: 5px;
+	border-left-style: solid;
+}
+
+code {
+	font-family: Menlo, Monaco, Consolas, "Droid Sans Mono", "Courier New", monospace, "Droid Sans Fallback";
+	font-size: 1em;
+	line-height: 1.357em;
+}
+
+body.wordWrap pre {
+	white-space: pre-wrap;
+}
+
+pre:not(.hljs),
+pre.hljs code > div {
+	padding: 16px;
+	border-radius: 3px;
+	overflow: auto;
+}
+
+pre code {
+	color: var(--vscode-editor-foreground);
+	tab-size: 4;
+}
+
+/** Theming */
+
+.vscode-light pre {
+	background-color: rgba(220, 220, 220, 0.4);
+}
+
+.vscode-dark pre {
+	background-color: rgba(10, 10, 10, 0.4);
+}
+
+.vscode-high-contrast pre {
+	background-color: rgb(0, 0, 0);
+}
+
+.vscode-high-contrast h1 {
+	border-color: rgb(0, 0, 0);
+}
+
+.vscode-light table > thead > tr > th {
+	border-color: rgba(0, 0, 0, 0.69);
+}
+
+.vscode-dark table > thead > tr > th {
+	border-color: rgba(255, 255, 255, 0.69);
+}
+
+.vscode-light h1,
+.vscode-light hr,
+.vscode-light table > tbody > tr + tr > td {
+	border-color: rgba(0, 0, 0, 0.18);
+}
+
+.vscode-dark h1,
+.vscode-dark hr,
+.vscode-dark table > tbody > tr + tr > td {
+	border-color: rgba(255, 255, 255, 0.18);
+}
+
+</style>
+
+<style>
+/* Tomorrow Theme */
+/* http://jmblog.github.com/color-themes-for-google-code-highlightjs */
+/* Original theme - https://github.com/chriskempson/tomorrow-theme */
+
+/* Tomorrow Comment */
+.hljs-comment,
+.hljs-quote {
+	color: #8e908c;
+}
+
+/* Tomorrow Red */
+.hljs-variable,
+.hljs-template-variable,
+.hljs-tag,
+.hljs-name,
+.hljs-selector-id,
+.hljs-selector-class,
+.hljs-regexp,
+.hljs-deletion {
+	color: #c82829;
+}
+
+/* Tomorrow Orange */
+.hljs-number,
+.hljs-built_in,
+.hljs-builtin-name,
+.hljs-literal,
+.hljs-type,
+.hljs-params,
+.hljs-meta,
+.hljs-link {
+	color: #f5871f;
+}
+
+/* Tomorrow Yellow */
+.hljs-attribute {
+	color: #eab700;
+}
+
+/* Tomorrow Green */
+.hljs-string,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-addition {
+	color: #718c00;
+}
+
+/* Tomorrow Blue */
+.hljs-title,
+.hljs-section {
+	color: #4271ae;
+}
+
+/* Tomorrow Purple */
+.hljs-keyword,
+.hljs-selector-tag {
+	color: #8959a8;
+}
+
+.hljs {
+	display: block;
+	overflow-x: auto;
+	color: #4d4d4c;
+	padding: 0.5em;
+}
+
+.hljs-emphasis {
+	font-style: italic;
+}
+
+.hljs-strong {
+	font-weight: bold;
+}
+</style>
+
+<style>
+/*
+ * Markdown PDF CSS
+ */
+
+ body {
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif, "Meiryo";
+	padding: 0 12px;
+}
+
+pre {
+	background-color: #f8f8f8;
+	border: 1px solid #cccccc;
+	border-radius: 3px;
+	overflow-x: auto;
+	white-space: pre-wrap;
+	overflow-wrap: break-word;
+}
+
+pre:not(.hljs) {
+	padding: 23px;
+	line-height: 19px;
+}
+
+blockquote {
+	background: rgba(127, 127, 127, 0.1);
+	border-color: rgba(0, 122, 204, 0.5);
+}
+
+.emoji {
+	height: 1.4em;
+}
+
+code {
+	font-size: 14px;
+	line-height: 19px;
+}
+
+/* for inline code */
+:not(pre):not(.hljs) > code {
+	color: #C9AE75; /* Change the old color so it seems less like an error */
+	font-size: inherit;
+}
+
+/* Page Break : use <div class="page"/> to insert page break
+-------------------------------------------------------- */
+.page {
+	page-break-after: always;
+}
+
+</style>
+
+<script src="https://unpkg.com/mermaid/dist/mermaid.min.js"></script>
+</head>
+<body>
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: document.body.classList.contains('vscode-dark') || document.body.classList.contains('vscode-high-contrast')
+          ? 'dark'
+          : 'default'
+    });
+  </script>
+<h1 id="azure-infrastructure-configuration-request">Azure Infrastructure Configuration Request</h1>
+<p><strong>Service:</strong> USABC Document Upload Service<br>
+<strong>Date:</strong> February 12, 2026<br>
+<strong>Requestor:</strong> John Bouchard<br>
+<strong>Subscription:</strong> e108977f-44ed-4400-9580-f7a0bc1d3630<br>
+<strong>Resource Group:</strong> rg-rfpo-e108977f</p>
+<hr>
+<h2 id="executive-summary">Executive Summary</h2>
+<p>This document outlines required Azure infrastructure configurations for the USABC Document Upload Service. The service is currently operational but requires administrative-level permissions to complete production-grade security and usability enhancements.</p>
+<p><strong>Current Status:</strong> ✅ Service deployed and functional at https://usabc-upload.livelyforest-d06a98a0.eastus.azurecontainerapps.io/<br>
+<strong>Goal:</strong> Enable managed identity, malware scanning, custom domain, and monitoring</p>
+<hr>
+<h2 id="request-1-enable-managed-identity-for-storage-account-access">Request 1: Enable Managed Identity for Storage Account Access</h2>
+<h3 id="why-this-is-needed"><strong>Why This is Needed:</strong></h3>
+<p>Currently, the container app uses storage account keys (similar to passwords) to access Azure Blob Storage. Managed Identity provides keyless, credential-free authentication that is more secure and eliminates the risk of key exposure or rotation issues.</p>
+<h3 id="resources-involved"><strong>Resources Involved:</strong></h3>
+<ul>
+<li><strong>Container App:</strong> usabc-upload (in rg-rfpo-e108977f)</li>
+<li><strong>Storage Account:</strong> strfpo5kn5bsg47vvac (in rg-rfpo-e108977f)</li>
+</ul>
+<h3 id="step-by-step-instructions"><strong>Step-by-Step Instructions:</strong></h3>
+<h4 id="step-1-enable-system-assigned-managed-identity-on-container-app">Step 1: Enable System-Assigned Managed Identity on Container App</h4>
+<pre class="hljs"><code><div><span class="hljs-comment"># Enable managed identity</span>
+az containerapp identity assign \
+  -<span class="hljs-literal">-name</span> usabc<span class="hljs-literal">-upload</span> \
+  -<span class="hljs-literal">-resource</span><span class="hljs-literal">-group</span> rg<span class="hljs-literal">-rfpo</span><span class="hljs-literal">-e108977f</span> \
+  -<span class="hljs-literal">-system</span><span class="hljs-literal">-assigned</span>
+
+<span class="hljs-comment"># Capture the principal ID (needed for next step)</span>
+<span class="hljs-variable">$principalId</span> = az containerapp identity show \
+  -<span class="hljs-literal">-name</span> usabc<span class="hljs-literal">-upload</span> \
+  -<span class="hljs-literal">-resource</span><span class="hljs-literal">-group</span> rg<span class="hljs-literal">-rfpo</span><span class="hljs-literal">-e108977f</span> \
+  -<span class="hljs-literal">-query</span> principalId <span class="hljs-literal">-o</span> tsv
+
+<span class="hljs-built_in">Write-Host</span> <span class="hljs-string">"Managed Identity Principal ID: <span class="hljs-variable">$principalId</span>"</span>
+</div></code></pre>
+<h4 id="step-2-grant-storage-permissions-to-managed-identity">Step 2: Grant Storage Permissions to Managed Identity</h4>
+<pre class="hljs"><code><div><span class="hljs-comment"># Get storage account resource ID</span>
+<span class="hljs-variable">$storageId</span> = az storage account show \
+  -<span class="hljs-literal">-name</span> strfpo5kn5bsg47vvac \
+  -<span class="hljs-literal">-resource</span><span class="hljs-literal">-group</span> rg<span class="hljs-literal">-rfpo</span><span class="hljs-literal">-e108977f</span> \
+  -<span class="hljs-literal">-query</span> id <span class="hljs-literal">-o</span> tsv
+
+<span class="hljs-comment"># Assign "Storage Blob Data Contributor" role</span>
+az role assignment create \
+  -<span class="hljs-literal">-assignee</span> <span class="hljs-variable">$principalId</span> \
+  -<span class="hljs-literal">-role</span> <span class="hljs-string">"Storage Blob Data Contributor"</span> \
+  -<span class="hljs-literal">-scope</span> <span class="hljs-variable">$storageId</span>
+
+<span class="hljs-comment"># Verify role assignment</span>
+az role assignment list \
+  -<span class="hljs-literal">-assignee</span> <span class="hljs-variable">$principalId</span> \
+  -<span class="hljs-literal">-scope</span> <span class="hljs-variable">$storageId</span> \
+  -<span class="hljs-literal">-query</span> <span class="hljs-string">"[].{Role:roleDefinitionName,Scope:scope}"</span> <span class="hljs-literal">-o</span> table
+</div></code></pre>
+<h4 id="step-3-remove-storage-key-from-container-app-environment">Step 3: Remove Storage Key from Container App Environment</h4>
+<pre class="hljs"><code><div><span class="hljs-comment"># Update container app to remove AZURE_STORAGE_ACCOUNT_KEY</span>
+<span class="hljs-comment"># (App will automatically use managed identity when no key is present)</span>
+az containerapp update \
+  -<span class="hljs-literal">-name</span> usabc<span class="hljs-literal">-upload</span> \
+  -<span class="hljs-literal">-resource</span><span class="hljs-literal">-group</span> rg<span class="hljs-literal">-rfpo</span><span class="hljs-literal">-e108977f</span> \
+  -<span class="hljs-literal">-remove</span><span class="hljs-literal">-env</span><span class="hljs-literal">-vars</span> AZURE_STORAGE_ACCOUNT_KEY
+
+<span class="hljs-comment"># Verify the change</span>
+az containerapp show \
+  -<span class="hljs-literal">-name</span> usabc<span class="hljs-literal">-upload</span> \
+  -<span class="hljs-literal">-resource</span><span class="hljs-literal">-group</span> rg<span class="hljs-literal">-rfpo</span><span class="hljs-literal">-e108977f</span> \
+  -<span class="hljs-literal">-query</span> <span class="hljs-string">"properties.template.containers[0].env"</span> <span class="hljs-literal">-o</span> table
+</div></code></pre>
+<h3 id="verification"><strong>Verification:</strong></h3>
+<p>After completing these steps, test file upload at: https://usabc-upload.livelyforest-d06a98a0.eastus.azurecontainerapps.io/</p>
+<p>Files should upload successfully without any authentication errors in the Container App logs.</p>
+<h3 id="expected-outcome"><strong>Expected Outcome:</strong></h3>
+<p>✅ Container app authenticates to storage using managed identity<br>
+✅ No storage keys stored in environment variables<br>
+✅ Improved security posture with credential-free authentication</p>
+<hr>
+<h2 id="request-2-enable-microsoft-defender-for-storage---malware-scanning">Request 2: Enable Microsoft Defender for Storage - Malware Scanning</h2>
+<h3 id="why-this-is-needed"><strong>Why This is Needed:</strong></h3>
+<p>The application code includes virus scanning capabilities that integrate with Microsoft Defender for Storage. When enabled, all uploaded files are automatically scanned for malware within 10-30 seconds. Malicious files are quarantined automatically.</p>
+<h3 id="resources-involved"><strong>Resources Involved:</strong></h3>
+<ul>
+<li><strong>Subscription:</strong> e108977f-44ed-4400-9580-f7a0bc1d3630</li>
+<li><strong>Storage Account:</strong> strfpo5kn5bsg47vvac (in rg-rfpo-e108977f)</li>
+</ul>
+<h3 id="step-by-step-instructions"><strong>Step-by-Step Instructions:</strong></h3>
+<h4 id="step-1-verify-defender-for-storage-is-enabled-at-subscription-level">Step 1: Verify Defender for Storage is Enabled at Subscription Level</h4>
+<pre class="hljs"><code><div><span class="hljs-comment"># Check current Defender status</span>
+az security pricing show -<span class="hljs-literal">-name</span> StorageAccounts
+
+<span class="hljs-comment"># If not enabled, enable it (requires Security Admin role)</span>
+az security pricing create \
+  -<span class="hljs-literal">-name</span> StorageAccounts \
+  -<span class="hljs-literal">-tier</span> Standard \
+  -<span class="hljs-literal">-subplan</span> DefenderForStorageV2
+</div></code></pre>
+<p><strong>Expected Output:</strong></p>
+<pre class="hljs"><code><div>{
+  <span class="hljs-attr">"pricingTier"</span>: <span class="hljs-string">"Standard"</span>,
+  <span class="hljs-attr">"subPlan"</span>: <span class="hljs-string">"DefenderForStorageV2"</span>
+}
+</div></code></pre>
+<h4 id="step-2-enable-malware-scanning-on-storage-account">Step 2: Enable Malware Scanning on Storage Account</h4>
+<pre class="hljs"><code><div><span class="hljs-comment"># Enable malware scanning via REST API</span>
+az rest -<span class="hljs-literal">-method</span> PUT \
+  -<span class="hljs-literal">-url</span> <span class="hljs-string">"https://management.azure.com/subscriptions/e108977f-44ed-4400-9580-f7a0bc1d3630/resourceGroups/rg-rfpo-e108977f/providers/Microsoft.Storage/storageAccounts/strfpo5kn5bsg47vvac/providers/Microsoft.Security/defenderForStorageSettings/current?api-version=2022-12-01-preview"</span> \
+  -<span class="hljs-literal">-body</span> <span class="hljs-string">'{
+    "properties": {
+      "isEnabled": true,
+      "malwareScanning": {
+        "onUpload": {
+          "isEnabled": true,
+          "capGBPerMonth": 5000
+        }
+      },
+      "sensitiveDataDiscovery": {
+        "isEnabled": false
+      },
+      "overrideSubscriptionLevelSettings": true
+    }
+  }'</span>
+</div></code></pre>
+<h4 id="step-3-create-quarantine-container-for-infected-files">Step 3: Create Quarantine Container (for infected files)</h4>
+<pre class="hljs"><code><div><span class="hljs-comment"># Create quarantine container</span>
+az storage container create \
+  -<span class="hljs-literal">-name</span> quarantine \
+  -<span class="hljs-literal">-account</span><span class="hljs-literal">-name</span> strfpo5kn5bsg47vvac \
+  -<span class="hljs-literal">-auth</span><span class="hljs-literal">-mode</span> login
+
+<span class="hljs-comment"># Set appropriate access policy (private)</span>
+az storage container <span class="hljs-built_in">set-permission</span> \
+  -<span class="hljs-literal">-name</span> quarantine \
+  -<span class="hljs-literal">-account</span><span class="hljs-literal">-name</span> strfpo5kn5bsg47vvac \
+  -<span class="hljs-literal">-public</span><span class="hljs-literal">-access</span> off
+</div></code></pre>
+<h4 id="alternative-enable-via-azure-portal-if-cli-fails">Alternative: Enable via Azure Portal (if CLI fails)</h4>
+<p>If the REST API command fails due to permissions, use the Azure Portal:</p>
+<ol>
+<li>Navigate to: https://portal.azure.com</li>
+<li>Search for storage account: <strong>strfpo5kn5bsg47vvac</strong></li>
+<li>In the left sidebar under <strong>Security + networking</strong> section</li>
+<li>Click <strong>Microsoft Defender for Cloud</strong></li>
+<li>Locate <strong>Malware Scanning</strong> section</li>
+<li>Toggle <strong>Malware Scanning</strong> to <strong>ON</strong></li>
+<li>Set <strong>Capping (GB per month)</strong>: 5000</li>
+<li>Click <strong>Save</strong></li>
+<li>Wait 5-10 minutes for provisioning</li>
+</ol>
+<h3 id="verification"><strong>Verification:</strong></h3>
+<pre class="hljs"><code><div><span class="hljs-comment"># Test with a file upload</span>
+<span class="hljs-comment"># Upload a file via the web form</span>
+<span class="hljs-comment"># Then check blob tags for scan results:</span>
+
+az storage blob tag list \
+  -<span class="hljs-literal">-account</span><span class="hljs-literal">-name</span> strfpo5kn5bsg47vvac \
+  -<span class="hljs-literal">-container</span><span class="hljs-literal">-name</span> usabc<span class="hljs-literal">-uploads</span><span class="hljs-literal">-stage</span> \
+  -<span class="hljs-literal">-name</span> <span class="hljs-string">"uploads/2026/02/13/&lt;submission-id&gt;.zip"</span> \
+  -<span class="hljs-literal">-auth</span><span class="hljs-literal">-mode</span> login
+</div></code></pre>
+<p><strong>Look for tags:</strong></p>
+<ul>
+<li><code>Malware Scanning scan result</code>: &quot;No threats found&quot; or &quot;Malicious&quot;</li>
+<li><code>Malware Scanning scan time UTC</code>: Timestamp</li>
+</ul>
+<h3 id="expected-outcome"><strong>Expected Outcome:</strong></h3>
+<p>✅ Malware scanning enabled on storage account<br>
+✅ Uploaded files automatically scanned within 30 seconds<br>
+✅ Malicious files quarantined to quarantine container<br>
+✅ Application returns 403 error for infected files</p>
+<h3 id="cost-impact"><strong>Cost Impact:</strong></h3>
+<ul>
+<li>Base: $10/month</li>
+<li>Scanning: $0.15 per GB scanned</li>
+<li>Monthly cap: 5000 GB</li>
+<li>Estimated: $10-30/month depending on upload volume</li>
+</ul>
+<hr>
+<h2 id="request-3-dns-configuration-for-custom-domain">Request 3: DNS Configuration for Custom Domain</h2>
+<h3 id="why-this-is-needed"><strong>Why This is Needed:</strong></h3>
+<p>Currently, the service uses the auto-generated Azure domain. A custom domain (uploads.uscar.org) provides:</p>
+<ul>
+<li>Professional, branded URL</li>
+<li>Easier to remember for users</li>
+<li>Consistent with organizational domain</li>
+<li>Automatic HTTPS certificate from Azure</li>
+</ul>
+<h3 id="dns-provider-whoever-manages-uscarorg-dns"><strong>DNS Provider:</strong> (Whoever manages uscar.org DNS)</h3>
+<h3 id="step-by-step-instructions"><strong>Step-by-Step Instructions:</strong></h3>
+<h4 id="step-1-add-txt-record-for-domain-verification">Step 1: Add TXT Record for Domain Verification</h4>
+<pre class="hljs"><code><div>Name:  asuid.uploads.uscar.org
+Type:  TXT
+Value: 92AD77A30DEAB51492DBE7D424BC6B8026AA51D21C1856F7498C4D009F697494
+TTL:   3600 seconds (1 hour)
+</div></code></pre>
+<p><strong>Why:</strong> Azure requires this TXT record to verify ownership of the domain before allowing custom domain binding.</p>
+<h4 id="step-2-add-cname-record-for-traffic-routing">Step 2: Add CNAME Record for Traffic Routing</h4>
+<pre class="hljs"><code><div>Name:  uploads.uscar.org
+Type:  CNAME
+Value: usabc-upload.livelyforest-d06a98a0.eastus.azurecontainerapps.io
+TTL:   3600 seconds (1 hour)
+</div></code></pre>
+<p><strong>Alternative if CNAME not supported:</strong></p>
+<pre class="hljs"><code><div>Name:  uploads.uscar.org
+Type:  A
+Value: 172.212.19.84
+TTL:   3600 seconds (1 hour)
+</div></code></pre>
+<p><strong>Note:</strong> CNAME is preferred as it follows Azure infrastructure changes automatically. Use A record only if DNS provider doesn't support CNAME for subdomains.</p>
+<h4 id="step-3-wait-for-dns-propagation">Step 3: Wait for DNS Propagation</h4>
+<p>Wait 5-15 minutes, then verify:</p>
+<pre class="hljs"><code><div><span class="hljs-comment"># Verify TXT record</span>
+nslookup <span class="hljs-literal">-type</span>=TXT asuid.uploads.uscar.org
+
+<span class="hljs-comment"># Verify CNAME or A record</span>
+nslookup uploads.uscar.org
+</div></code></pre>
+<h4 id="step-4-bind-custom-domain-to-container-app">Step 4: Bind Custom Domain to Container App</h4>
+<pre class="hljs"><code><div><span class="hljs-comment"># Add custom domain</span>
+az containerapp hostname add \
+  -<span class="hljs-literal">-hostname</span> uploads.uscar.org \
+  -<span class="hljs-literal">-name</span> usabc<span class="hljs-literal">-upload</span> \
+  -<span class="hljs-literal">-resource</span><span class="hljs-literal">-group</span> rg<span class="hljs-literal">-rfpo</span><span class="hljs-literal">-e108977f</span>
+
+<span class="hljs-comment"># Enable managed TLS certificate (automatic HTTPS)</span>
+az containerapp hostname bind \
+  -<span class="hljs-literal">-hostname</span> uploads.uscar.org \
+  -<span class="hljs-literal">-name</span> usabc<span class="hljs-literal">-upload</span> \
+  -<span class="hljs-literal">-resource</span><span class="hljs-literal">-group</span> rg<span class="hljs-literal">-rfpo</span><span class="hljs-literal">-e108977f</span> \
+  -<span class="hljs-literal">-environment</span><span class="hljs-literal">-certificate</span><span class="hljs-literal">-issuer</span> <span class="hljs-string">"Managed"</span> \
+  -<span class="hljs-literal">-validation</span><span class="hljs-literal">-method</span> CNAME
+</div></code></pre>
+<h4 id="step-5-verify-ssl-certificate">Step 5: Verify SSL Certificate</h4>
+<pre class="hljs"><code><div><span class="hljs-comment"># Check certificate status</span>
+az containerapp hostname list \
+  -<span class="hljs-literal">-name</span> usabc<span class="hljs-literal">-upload</span> \
+  -<span class="hljs-literal">-resource</span><span class="hljs-literal">-group</span> rg<span class="hljs-literal">-rfpo</span><span class="hljs-literal">-e108977f</span> \
+  <span class="hljs-literal">-o</span> table
+</div></code></pre>
+<h3 id="verification"><strong>Verification:</strong></h3>
+<ul>
+<li>Open browser and navigate to: https://uploads.uscar.org</li>
+<li>Verify HTTPS padlock icon (valid TLS certificate)</li>
+<li>Test file upload functionality</li>
+</ul>
+<h3 id="expected-outcome"><strong>Expected Outcome:</strong></h3>
+<p>✅ Service accessible at https://uploads.uscar.org<br>
+✅ Automatic HTTPS with managed certificate<br>
+✅ Certificate auto-renews before expiration<br>
+✅ Old URL still works for backward compatibility</p>
+<hr>
+<h2 id="request-4-email-configuration-for-uploadsuscarorg">Request 4: Email Configuration for uploads@uscar.org</h2>
+<h3 id="why-this-is-needed"><strong>Why This is Needed:</strong></h3>
+<p>The service now includes automated email confirmation functionality that sends receipt notifications to file submitters. This requires Azure Communication Services to be configured with a verified email domain (uploads@uscar.org). Additionally, a monitored mailbox is helpful for support inquiries.</p>
+<h3 id="part-a-azure-communication-services-for-automated-emails-required"><strong>Part A: Azure Communication Services for Automated Emails (REQUIRED)</strong></h3>
+<p>The application sends automated confirmation emails to submitters after they upload files. This requires:</p>
+<ol>
+<li>Azure Communication Services Email resource</li>
+<li>DNS verification of the uscar.org domain</li>
+<li>Configuration of sender address (uploads@uscar.org)</li>
+<li>Connection string added to container app environment</li>
+</ol>
+<h4 id="step-1-create-azure-communication-services-email-resource">Step 1: Create Azure Communication Services Email Resource</h4>
+<pre class="hljs"><code><div><span class="hljs-comment"># Create Email Communication Service</span>
+az communication email create \
+  -<span class="hljs-literal">-name</span> usabc<span class="hljs-literal">-email</span><span class="hljs-literal">-communication</span> \
+  -<span class="hljs-literal">-resource</span><span class="hljs-literal">-group</span> rg<span class="hljs-literal">-rfpo</span><span class="hljs-literal">-e108977f</span> \
+  -<span class="hljs-literal">-data</span><span class="hljs-literal">-location</span> <span class="hljs-string">"United States"</span>
+
+<span class="hljs-comment"># Note the resource ID for next steps</span>
+<span class="hljs-variable">$emailServiceId</span> = az communication email show \
+  -<span class="hljs-literal">-name</span> usabc<span class="hljs-literal">-email</span><span class="hljs-literal">-communication</span> \
+  -<span class="hljs-literal">-resource</span><span class="hljs-literal">-group</span> rg<span class="hljs-literal">-rfpo</span><span class="hljs-literal">-e108977f</span> \
+  -<span class="hljs-literal">-query</span> id <span class="hljs-literal">-o</span> tsv
+</div></code></pre>
+<h4 id="step-2-add-custom-domain-uscarorg-to-email-service">Step 2: Add Custom Domain (uscar.org) to Email Service</h4>
+<pre class="hljs"><code><div><span class="hljs-comment"># Add custom domain - this will provide DNS records for verification</span>
+az communication email domain create \
+  -<span class="hljs-literal">-name</span> uscar<span class="hljs-literal">-org</span><span class="hljs-literal">-domain</span> \
+  -<span class="hljs-literal">-email</span><span class="hljs-literal">-service</span><span class="hljs-literal">-name</span> usabc<span class="hljs-literal">-email</span><span class="hljs-literal">-communication</span> \
+  -<span class="hljs-literal">-resource</span><span class="hljs-literal">-group</span> rg<span class="hljs-literal">-rfpo</span><span class="hljs-literal">-e108977f</span> \
+  -<span class="hljs-literal">-domain</span><span class="hljs-literal">-management</span><span class="hljs-literal">-type</span> CustomerManaged \
+  -<span class="hljs-literal">-custom</span><span class="hljs-literal">-domain</span> uscar.org
+
+<span class="hljs-comment"># Get DNS verification records (you'll need to add these to DNS)</span>
+az communication email domain show \
+  -<span class="hljs-literal">-name</span> uscar<span class="hljs-literal">-org</span><span class="hljs-literal">-domain</span> \
+  -<span class="hljs-literal">-email</span><span class="hljs-literal">-service</span><span class="hljs-literal">-name</span> usabc<span class="hljs-literal">-email</span><span class="hljs-literal">-communication</span> \
+  -<span class="hljs-literal">-resource</span><span class="hljs-literal">-group</span> rg<span class="hljs-literal">-rfpo</span><span class="hljs-literal">-e108977f</span> \
+  -<span class="hljs-literal">-query</span> verificationRecords <span class="hljs-literal">-o</span> json
+</div></code></pre>
+<h4 id="step-3-add-required-dns-records">Step 3: Add Required DNS Records</h4>
+<p>Add the following records to uscar.org DNS (records will be provided by previous command):</p>
+<ul>
+<li><strong>TXT record</strong> for domain verification: <code>_azuremail-validation.uscar.org</code></li>
+<li><strong>TXT record</strong> for SPF: <code>v=spf1 include:spf.protection.outlook.com -all</code></li>
+<li><strong>CNAME record</strong> for DKIM: <code>selector1._domainkey.uscar.org</code></li>
+<li><strong>CNAME record</strong> for DKIM: <code>selector2._domainkey.uscar.org</code></li>
+</ul>
+<h4 id="step-4-verify-domain-and-add-sender-address">Step 4: Verify Domain and Add Sender Address</h4>
+<pre class="hljs"><code><div><span class="hljs-comment"># After DNS records are propagated, verify domain</span>
+az communication email domain initiate<span class="hljs-literal">-verification</span> \
+  -<span class="hljs-literal">-name</span> uscar<span class="hljs-literal">-org</span><span class="hljs-literal">-domain</span> \
+  -<span class="hljs-literal">-email</span><span class="hljs-literal">-service</span><span class="hljs-literal">-name</span> usabc<span class="hljs-literal">-email</span><span class="hljs-literal">-communication</span> \
+  -<span class="hljs-literal">-resource</span><span class="hljs-literal">-group</span> rg<span class="hljs-literal">-rfpo</span><span class="hljs-literal">-e108977f</span> \
+  -<span class="hljs-literal">-verification</span><span class="hljs-literal">-type</span> Domain
+
+<span class="hljs-comment"># Check verification status</span>
+az communication email domain show \
+  -<span class="hljs-literal">-name</span> uscar<span class="hljs-literal">-org</span><span class="hljs-literal">-domain</span> \
+  -<span class="hljs-literal">-email</span><span class="hljs-literal">-service</span><span class="hljs-literal">-name</span> usabc<span class="hljs-literal">-email</span><span class="hljs-literal">-communication</span> \
+  -<span class="hljs-literal">-resource</span><span class="hljs-literal">-group</span> rg<span class="hljs-literal">-rfpo</span><span class="hljs-literal">-e108977f</span> \
+  -<span class="hljs-literal">-query</span> domainVerificationStatus
+
+<span class="hljs-comment"># Once verified, add sender username (uploads@uscar.org)</span>
+az communication email domain sender<span class="hljs-literal">-username</span> create \
+  -<span class="hljs-literal">-domain</span><span class="hljs-literal">-name</span> uscar<span class="hljs-literal">-org</span><span class="hljs-literal">-domain</span> \
+  -<span class="hljs-literal">-email</span><span class="hljs-literal">-service</span><span class="hljs-literal">-name</span> usabc<span class="hljs-literal">-email</span><span class="hljs-literal">-communication</span> \
+  -<span class="hljs-literal">-resource</span><span class="hljs-literal">-group</span> rg<span class="hljs-literal">-rfpo</span><span class="hljs-literal">-e108977f</span> \
+  -<span class="hljs-literal">-sender</span><span class="hljs-literal">-username</span> uploads \
+  -<span class="hljs-literal">-username</span> uploads \
+  -<span class="hljs-literal">-display</span><span class="hljs-literal">-name</span> <span class="hljs-string">"USABC Document Uploads"</span>
+</div></code></pre>
+<h4 id="step-5-create-communication-services-resource-for-connection">Step 5: Create Communication Services Resource (for connection)</h4>
+<pre class="hljs"><code><div><span class="hljs-comment"># Create Communication Services resource to get connection string</span>
+az communication create \
+  -<span class="hljs-literal">-name</span> usabc<span class="hljs-literal">-communication</span> \
+  -<span class="hljs-literal">-resource</span><span class="hljs-literal">-group</span> rg<span class="hljs-literal">-rfpo</span><span class="hljs-literal">-e108977f</span> \
+  -<span class="hljs-literal">-data</span><span class="hljs-literal">-location</span> <span class="hljs-string">"United States"</span>
+
+<span class="hljs-comment"># Link email service</span>
+az communication email domain association create \
+  -<span class="hljs-literal">-connection</span><span class="hljs-literal">-string</span> <span class="hljs-string">"<span class="hljs-variable">$</span>(az communication list-key --name usabc-communication --resource-group rg-rfpo-e108977f --query primaryConnectionString -o tsv)"</span> \
+  -<span class="hljs-literal">-email</span><span class="hljs-literal">-service</span><span class="hljs-literal">-resource</span><span class="hljs-literal">-id</span> <span class="hljs-variable">$emailServiceId</span>
+
+<span class="hljs-comment"># Get connection string (needed for app config)</span>
+az communication list<span class="hljs-literal">-key</span> \
+  -<span class="hljs-literal">-name</span> usabc<span class="hljs-literal">-communication</span> \
+  -<span class="hljs-literal">-resource</span><span class="hljs-literal">-group</span> rg<span class="hljs-literal">-rfpo</span><span class="hljs-literal">-e108977f</span> \
+  -<span class="hljs-literal">-query</span> primaryConnectionString <span class="hljs-literal">-o</span> tsv
+</div></code></pre>
+<h4 id="step-6-configure-container-app-with-connection-string">Step 6: Configure Container App with Connection String</h4>
+<pre class="hljs"><code><div><span class="hljs-comment"># Add environment variables for email functionality</span>
+az containerapp update \
+  -<span class="hljs-literal">-name</span> usabc<span class="hljs-literal">-upload</span> \
+  -<span class="hljs-literal">-resource</span><span class="hljs-literal">-group</span> rg<span class="hljs-literal">-rfpo</span><span class="hljs-literal">-e108977f</span> \
+  -<span class="hljs-literal">-set</span><span class="hljs-literal">-env</span><span class="hljs-literal">-vars</span> \
+    AZURE_COMMUNICATION_CONNECTION_STRING=<span class="hljs-string">"&lt;connection-string-from-step-5&gt;"</span> \
+    AZURE_COMMUNICATION_SENDER_ADDRESS=<span class="hljs-string">"uploads@uscar.org"</span>
+</div></code></pre>
+<h3 id="part-b-email-monitoring-mailbox-optional"><strong>Part B: Email Monitoring Mailbox (OPTIONAL)</strong></h3>
+<p>While not required for automated confirmations, a monitored mailbox allows support for user inquiries.</p>
+<h4 id="option-b1-microsoft-365-shared-mailbox"><strong>Option B1: Microsoft 365 Shared Mailbox</strong></h4>
+<pre class="hljs"><code><div><span class="hljs-comment"># Create shared mailbox (no license needed, up to 50GB)</span>
+<span class="hljs-built_in">New-Mailbox</span> <span class="hljs-literal">-Shared</span> <span class="hljs-literal">-Name</span> <span class="hljs-string">"USABC Document Uploads"</span> <span class="hljs-literal">-PrimarySmtpAddress</span> uploads@uscar.org
+
+<span class="hljs-comment"># Grant permissions to team members</span>
+<span class="hljs-built_in">Add-MailboxPermission</span> <span class="hljs-literal">-Identity</span> uploads@uscar.org <span class="hljs-literal">-User</span> <span class="hljs-string">"admin@uscar.org"</span> <span class="hljs-literal">-AccessRights</span> FullAccess
+</div></code></pre>
+<h4 id="option-b2-email-aliasforwarding"><strong>Option B2: Email Alias/Forwarding</strong></h4>
+<pre class="hljs"><code><div><span class="hljs-comment"># Create alias on existing mailbox to receive replies</span>
+<span class="hljs-built_in">Set-Mailbox</span> <span class="hljs-literal">-Identity</span> <span class="hljs-string">"support@uscar.org"</span> <span class="hljs-literal">-EmailAddresses</span> <span class="hljs-selector-tag">@</span>{add=<span class="hljs-string">"uploads@uscar.org"</span>}
+</div></code></pre>
+<h3 id="verification"><strong>Verification:</strong></h3>
+<ol>
+<li>Upload a file through the web form with a valid email address</li>
+<li>Check that confirmation email is received</li>
+<li>Verify email shows correct sender (uploads@uscar.org)</li>
+<li>Check container app logs for <code>EMAIL_SENT</code> messages</li>
+</ol>
+<h3 id="expected-outcome"><strong>Expected Outcome:</strong></h3>
+<p>✅ Azure Communication Services configured and verified<br>
+✅ uploads@uscar.org can send automated confirmation emails<br>
+✅ Submitters receive professional email confirmations with file details<br>
+✅ Email delivery tracked in application logs</p>
+<h3 id="cost-impact"><strong>Cost Impact:</strong></h3>
+<ul>
+<li>Azure Communication Services Email: $0.0000625 per email (negligible for expected volume)</li>
+<li>Shared mailbox (if created): Free with Exchange Online</li>
+</ul>
+<hr>
+<h2 id="request-5-configure-azure-monitor-alerts">Request 5: Configure Azure Monitor Alerts</h2>
+<h3 id="why-this-is-needed"><strong>Why This is Needed:</strong></h3>
+<p>Production services require monitoring and alerting for operational issues, security events, and capacity management.</p>
+<h3 id="resources-involved"><strong>Resources Involved:</strong></h3>
+<ul>
+<li><strong>Container App:</strong> usabc-upload</li>
+<li><strong>Storage Account:</strong> strfpo5kn5bsg47vvac</li>
+</ul>
+<h3 id="step-by-step-instructions"><strong>Step-by-Step Instructions:</strong></h3>
+<h4 id="step-1-create-action-group-for-alert-notifications">Step 1: Create Action Group for Alert Notifications</h4>
+<pre class="hljs"><code><div><span class="hljs-comment"># Create action group for email notifications</span>
+az monitor action<span class="hljs-literal">-group</span> create \
+  -<span class="hljs-literal">-name</span> usabc<span class="hljs-literal">-upload</span><span class="hljs-literal">-alerts</span> \
+  -<span class="hljs-literal">-resource</span><span class="hljs-literal">-group</span> rg<span class="hljs-literal">-rfpo</span><span class="hljs-literal">-e108977f</span> \
+  -<span class="hljs-literal">-short</span><span class="hljs-literal">-name</span> usabc<span class="hljs-literal">-alerts</span> \
+  -<span class="hljs-literal">-email</span><span class="hljs-literal">-receiver</span> name=<span class="hljs-string">"Admin"</span> email<span class="hljs-literal">-address</span>=<span class="hljs-string">"admin@uscar.org"</span> \
+  -<span class="hljs-literal">-email</span><span class="hljs-literal">-receiver</span> name=<span class="hljs-string">"Uploads"</span> email<span class="hljs-literal">-address</span>=<span class="hljs-string">"uploads@uscar.org"</span>
+</div></code></pre>
+<h4 id="step-2-create-container-app-health-alert">Step 2: Create Container App Health Alert</h4>
+<pre class="hljs"><code><div><span class="hljs-comment"># Alert when container app is not running</span>
+az monitor metrics alert create \
+  -<span class="hljs-literal">-name</span> usabc<span class="hljs-literal">-upload</span><span class="hljs-literal">-down</span> \
+  -<span class="hljs-literal">-resource</span><span class="hljs-literal">-group</span> rg<span class="hljs-literal">-rfpo</span><span class="hljs-literal">-e108977f</span> \
+  -<span class="hljs-literal">-scopes</span> <span class="hljs-string">"/subscriptions/e108977f-44ed-4400-9580-f7a0bc1d3630/resourceGroups/rg-rfpo-e108977f/providers/Microsoft.App/containerapps/usabc-upload"</span> \
+  -<span class="hljs-literal">-condition</span> <span class="hljs-string">"count Replicas &lt; 1"</span> \
+  -<span class="hljs-literal">-window</span><span class="hljs-literal">-size</span> <span class="hljs-number">5</span>m \
+  -<span class="hljs-literal">-evaluation</span><span class="hljs-literal">-frequency</span> <span class="hljs-number">1</span>m \
+  -<span class="hljs-literal">-action</span> usabc<span class="hljs-literal">-upload</span><span class="hljs-literal">-alerts</span> \
+  -<span class="hljs-literal">-description</span> <span class="hljs-string">"Container app has no running replicas"</span>
+</div></code></pre>
+<h4 id="step-3-create-high-error-rate-alert">Step 3: Create High Error Rate Alert</h4>
+<pre class="hljs"><code><div><span class="hljs-comment"># Alert when HTTP 5xx errors exceed threshold</span>
+az monitor metrics alert create \
+  -<span class="hljs-literal">-name</span> usabc<span class="hljs-literal">-upload</span><span class="hljs-literal">-errors</span> \
+  -<span class="hljs-literal">-resource</span><span class="hljs-literal">-group</span> rg<span class="hljs-literal">-rfpo</span><span class="hljs-literal">-e108977f</span> \
+  -<span class="hljs-literal">-scopes</span> <span class="hljs-string">"/subscriptions/e108977f-44ed-4400-9580-f7a0bc1d3630/resourceGroups/rg-rfpo-e108977f/providers/Microsoft.App/containerapps/usabc-upload"</span> \
+  -<span class="hljs-literal">-condition</span> <span class="hljs-string">"total Requests count &gt; 10 where ResultType includes '5'"</span> \
+  -<span class="hljs-literal">-window</span><span class="hljs-literal">-size</span> <span class="hljs-number">15</span>m \
+  -<span class="hljs-literal">-evaluation</span><span class="hljs-literal">-frequency</span> <span class="hljs-number">5</span>m \
+  -<span class="hljs-literal">-action</span> usabc<span class="hljs-literal">-upload</span><span class="hljs-literal">-alerts</span> \
+  -<span class="hljs-literal">-description</span> <span class="hljs-string">"High rate of server errors (5xx)"</span>
+</div></code></pre>
+<h4 id="step-4-create-malware-detection-alert">Step 4: Create Malware Detection Alert</h4>
+<pre class="hljs"><code><div><span class="hljs-comment"># Alert when malware is detected in uploaded files</span>
+<span class="hljs-comment"># Note: This monitors blob tags via Log Analytics</span>
+<span class="hljs-comment"># Requires storage account diagnostic settings to be enabled first</span>
+
+<span class="hljs-comment"># Enable diagnostic logging</span>
+az monitor diagnostic<span class="hljs-literal">-settings</span> create \
+  -<span class="hljs-literal">-name</span> storage<span class="hljs-literal">-logs</span> \
+  -<span class="hljs-literal">-resource</span> <span class="hljs-string">"/subscriptions/e108977f-44ed-4400-9580-f7a0bc1d3630/resourceGroups/rg-rfpo-e108977f/providers/Microsoft.Storage/storageAccounts/strfpo5kn5bsg47vvac"</span> \
+  -<span class="hljs-literal">-logs</span> <span class="hljs-string">'[{"category": "StorageRead", "enabled": true}, {"category": "StorageWrite", "enabled": true}]'</span> \
+  -<span class="hljs-literal">-workspace</span> <span class="hljs-string">"/subscriptions/e108977f-44ed-4400-9580-f7a0bc1d3630/resourceGroups/rg-rfpo-e108977f/providers/Microsoft.OperationalInsights/workspaces/&lt;workspace-name&gt;"</span>
+</div></code></pre>
+<p><em>Note: Replace <code>&lt;workspace-name&gt;</code> with your Log Analytics workspace name, or create one if it doesn't exist.</em></p>
+<h4 id="step-5-create-storage-capacity-alert">Step 5: Create Storage Capacity Alert</h4>
+<pre class="hljs"><code><div><span class="hljs-comment"># Alert when storage usage exceeds 80%</span>
+az monitor metrics alert create \
+  -<span class="hljs-literal">-name</span> usabc<span class="hljs-literal">-storage</span><span class="hljs-literal">-capacity</span> \
+  -<span class="hljs-literal">-resource</span><span class="hljs-literal">-group</span> rg<span class="hljs-literal">-rfpo</span><span class="hljs-literal">-e108977f</span> \
+  -<span class="hljs-literal">-scopes</span> <span class="hljs-string">"/subscriptions/e108977f-44ed-4400-9580-f7a0bc1d3630/resourceGroups/rg-rfpo-e108977f/providers/Microsoft.Storage/storageAccounts/strfpo5kn5bsg47vvac"</span> \
+  -<span class="hljs-literal">-condition</span> <span class="hljs-string">"total UsedCapacity &gt; 80000000000"</span> \
+  -<span class="hljs-literal">-window</span><span class="hljs-literal">-size</span> <span class="hljs-number">1</span>h \
+  -<span class="hljs-literal">-evaluation</span><span class="hljs-literal">-frequency</span> <span class="hljs-number">15</span>m \
+  -<span class="hljs-literal">-action</span> usabc<span class="hljs-literal">-upload</span><span class="hljs-literal">-alerts</span> \
+  -<span class="hljs-literal">-description</span> <span class="hljs-string">"Storage usage exceeds 80GB"</span>
+</div></code></pre>
+<h3 id="expected-outcome"><strong>Expected Outcome:</strong></h3>
+<p>✅ Email notifications for service health issues<br>
+✅ Alerts for malware detections<br>
+✅ Proactive capacity management<br>
+✅ Reduced mean time to detection (MTTD)</p>
+<hr>
+<h2 id="request-6-enable-container-app-continuous-deployment">Request 6: Enable Container App Continuous Deployment</h2>
+<h3 id="why-this-is-needed"><strong>Why This is Needed:</strong></h3>
+<p>Currently, deployments are manual. Setting up continuous deployment from the container registry enables automatic updates when new versions are pushed.</p>
+<h3 id="step-by-step-instructions"><strong>Step-by-Step Instructions:</strong></h3>
+<h4 id="enable-continuous-deployment">Enable Continuous Deployment</h4>
+<pre class="hljs"><code><div><span class="hljs-comment"># Configure container app to poll registry for updates</span>
+az containerapp registry set \
+  -<span class="hljs-literal">-name</span> usabc<span class="hljs-literal">-upload</span> \
+  -<span class="hljs-literal">-resource</span><span class="hljs-literal">-group</span> rg<span class="hljs-literal">-rfpo</span><span class="hljs-literal">-e108977f</span> \
+  -<span class="hljs-literal">-server</span> acrrfpoe108977f.azurecr.io \
+  -<span class="hljs-literal">-username</span> acrrfpoe108977f \
+  -<span class="hljs-literal">-password</span> <span class="hljs-string">"&lt;registry-password&gt;"</span>
+
+<span class="hljs-comment"># Note: Password can be retrieved with:</span>
+<span class="hljs-comment"># az acr credential show --name acrrfpoe108977f --query "passwords[0].value" -o tsv</span>
+</div></code></pre>
+<h3 id="expected-outcome"><strong>Expected Outcome:</strong></h3>
+<p>✅ New container versions automatically deployed<br>
+✅ Zero-downtime rolling updates<br>
+✅ Simplified deployment process</p>
+<hr>
+<h2 id="request-7-configure-backup-and-disaster-recovery">Request 7: Configure Backup and Disaster Recovery</h2>
+<h3 id="why-this-is-needed"><strong>Why This is Needed:</strong></h3>
+<p>Protect against accidental deletion and enable point-in-time recovery for uploaded documents.</p>
+<h3 id="step-by-step-instructions"><strong>Step-by-Step Instructions:</strong></h3>
+<h4 id="step-1-enable-blob-soft-delete">Step 1: Enable Blob Soft Delete</h4>
+<pre class="hljs"><code><div><span class="hljs-comment"># Enable soft delete with 30-day retention</span>
+az storage account blob<span class="hljs-literal">-service</span><span class="hljs-literal">-properties</span> update \
+  -<span class="hljs-literal">-account</span><span class="hljs-literal">-name</span> strfpo5kn5bsg47vvac \
+  -<span class="hljs-literal">-resource</span><span class="hljs-literal">-group</span> rg<span class="hljs-literal">-rfpo</span><span class="hljs-literal">-e108977f</span> \
+  -<span class="hljs-literal">-enable</span><span class="hljs-literal">-delete</span><span class="hljs-literal">-retention</span> true \
+  -<span class="hljs-literal">-delete</span><span class="hljs-literal">-retention</span><span class="hljs-literal">-days</span> <span class="hljs-number">30</span>
+
+<span class="hljs-comment"># Enable container soft delete</span>
+az storage account blob<span class="hljs-literal">-service</span><span class="hljs-literal">-properties</span> update \
+  -<span class="hljs-literal">-account</span><span class="hljs-literal">-name</span> strfpo5kn5bsg47vvac \
+  -<span class="hljs-literal">-resource</span><span class="hljs-literal">-group</span> rg<span class="hljs-literal">-rfpo</span><span class="hljs-literal">-e108977f</span> \
+  -<span class="hljs-literal">-enable</span><span class="hljs-literal">-container</span><span class="hljs-literal">-delete</span><span class="hljs-literal">-retention</span> true \
+  -<span class="hljs-literal">-container</span><span class="hljs-literal">-delete</span><span class="hljs-literal">-retention</span><span class="hljs-literal">-days</span> <span class="hljs-number">30</span>
+</div></code></pre>
+<h4 id="step-2-enable-blob-versioning">Step 2: Enable Blob Versioning</h4>
+<pre class="hljs"><code><div><span class="hljs-comment"># Enable versioning for point-in-time recovery</span>
+az storage account blob<span class="hljs-literal">-service</span><span class="hljs-literal">-properties</span> update \
+  -<span class="hljs-literal">-account</span><span class="hljs-literal">-name</span> strfpo5kn5bsg47vvac \
+  -<span class="hljs-literal">-resource</span><span class="hljs-literal">-group</span> rg<span class="hljs-literal">-rfpo</span><span class="hljs-literal">-e108977f</span> \
+  -<span class="hljs-literal">-enable</span><span class="hljs-literal">-versioning</span> true
+</div></code></pre>
+<h4 id="step-3-configure-lifecycle-management-optional-cost-optimization">Step 3: Configure Lifecycle Management (Optional Cost Optimization)</h4>
+<pre class="hljs"><code><div><span class="hljs-comment"># Create lifecycle policy to move old data to Cool tier</span>
+az storage account management<span class="hljs-literal">-policy</span> create \
+  -<span class="hljs-literal">-account</span><span class="hljs-literal">-name</span> strfpo5kn5bsg47vvac \
+  -<span class="hljs-literal">-resource</span><span class="hljs-literal">-group</span> rg<span class="hljs-literal">-rfpo</span><span class="hljs-literal">-e108977f</span> \
+  -<span class="hljs-literal">-policy</span> <span class="hljs-string">'{
+    "rules": [
+      {
+        "enabled": true,
+        "name": "move-old-to-cool",
+        "type": "Lifecycle",
+        "definition": {
+          "actions": {
+            "baseBlob": {
+              "tierToCool": {
+                "daysAfterModificationGreaterThan": 90
+              },
+              "tierToArchive": {
+                "daysAfterModificationGreaterThan": 365
+              }
+            }
+          },
+          "filters": {
+            "blobTypes": ["blockBlob"],
+            "prefixMatch": ["uploads/"]
+          }
+        }
+      }
+    ]
+  }'</span>
+</div></code></pre>
+<h3 id="expected-outcome"><strong>Expected Outcome:</strong></h3>
+<p>✅ 30-day recovery window for deleted files<br>
+✅ Point-in-time restore capability<br>
+✅ Protection against accidental deletion<br>
+✅ Cost optimization through tiering</p>
+<hr>
+<h2 id="summary-of-required-actions">Summary of Required Actions</h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Task</th>
+<th>Estimated Time</th>
+<th>Impact</th>
+<th>Priority</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>Enable Managed Identity</td>
+<td>15 minutes</td>
+<td>High security improvement</td>
+<td>High</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Enable Malware Scanning</td>
+<td>20 minutes</td>
+<td>Critical security feature</td>
+<td>High</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Configure Custom Domain DNS</td>
+<td>30 minutes</td>
+<td>User experience improvement</td>
+<td>Medium</td>
+</tr>
+<tr>
+<td>4</td>
+<td>Set up uploads@uscar.org</td>
+<td>20 minutes</td>
+<td>Professional communication</td>
+<td>Medium</td>
+</tr>
+<tr>
+<td>5</td>
+<td>Configure Monitoring Alerts</td>
+<td>30 minutes</td>
+<td>Operational visibility</td>
+<td>High</td>
+</tr>
+<tr>
+<td>6</td>
+<td>Enable Continuous Deployment</td>
+<td>10 minutes</td>
+<td>Simplified operations</td>
+<td>Low</td>
+</tr>
+<tr>
+<td>7</td>
+<td>Configure Backup/DR</td>
+<td>15 minutes</td>
+<td>Data protection</td>
+<td>High</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Total Estimated Time:</strong> 2.5 - 3 hours</p>
+<hr>
+<h2 id="testing-and-validation-checklist">Testing and Validation Checklist</h2>
+<p>After completing all requests, verify:</p>
+<ul>
+<li><input type="checkbox" id="checkbox0"><label for="checkbox0">File uploads work with managed identity (check container logs)</label></li>
+<li><input type="checkbox" id="checkbox1"><label for="checkbox1">Malware scan results appear in blob tags</label></li>
+<li><input type="checkbox" id="checkbox2"><label for="checkbox2">Custom domain redirects to HTTPS correctly</label></li>
+<li><input type="checkbox" id="checkbox3"><label for="checkbox3">Email to uploads@uscar.org is received</label></li>
+<li><input type="checkbox" id="checkbox4"><label for="checkbox4">Alert emails are received when test condition triggered</label></li>
+<li><input type="checkbox" id="checkbox5"><label for="checkbox5">Soft-deleted blob can be recovered from Azure Portal</label></li>
+<li><input type="checkbox" id="checkbox6"><label for="checkbox6">Health endpoint returns 200: https://uploads.uscar.org/health</label></li>
+</ul>
+<hr>
+<h2 id="support-contacts">Support Contacts</h2>
+<p><strong>Requestor:</strong> John Bouchard (johnbouchard@icloud.com)<br>
+<strong>Service Documentation:</strong> See repository /docs folder<br>
+<strong>Container App Logs:</strong> Azure Portal → rg-rfpo-e108977f → usabc-upload → Log stream</p>
+<hr>
+<h2 id="additional-notes">Additional Notes</h2>
+<p><strong>Cost Impact Summary:</strong></p>
+<ul>
+<li>Managed Identity: No additional cost</li>
+<li>Defender for Storage: +$10-30/month</li>
+<li>Custom Domain: No additional cost (included)</li>
+<li>Email (Shared Mailbox): No additional cost</li>
+<li>Monitoring: Included in Container Apps pricing</li>
+<li>Continuous Deployment: No additional cost</li>
+<li>Backup/Versioning: ~$0.01/GB/month for versioning storage</li>
+</ul>
+<p><strong>Total Additional Monthly Cost:</strong> ~$10-35/month (primarily Defender scanning)</p>
+<p><strong>Security Compliance:</strong>
+This configuration achieves:</p>
+<ul>
+<li>✅ Zero stored credentials (managed identity)</li>
+<li>✅ Automated malware protection</li>
+<li>✅ TLS 1.2+ encrypted traffic</li>
+<li>✅ 30-day backup retention</li>
+<li>✅ Operational monitoring and alerting</li>
+<li>✅ Professional branding and communication</li>
+</ul>
+<hr>
+<h2 id="questions-or-issues">Questions or Issues?</h2>
+<p>If any of these steps fail or require clarification, please contact the requestor or refer to the service repository documentation at:</p>
+<ul>
+<li>Virus Scanning: <code>VIRUS_SCANNING.md</code></li>
+<li>Third-Party Integration: <code>THIRD_PARTY_INTEGRATION.md</code></li>
+<li>Deployment Guide: <code>deploy-guide.md</code></li>
+</ul>
+
+</body>
+</html>

@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  processor:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: usabc-processor
+    env_file:
+      - .env
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    # Optional: Add volumes for local development
+    # volumes:
+    #   - ./processor.py:/app/processor.py
